@@ -1,0 +1,18 @@
+{
+  "name": "Crosswordese",
+  "description": "Solve crossword clues and provide easier clues in case you get stuck",
+  "version": "1.0",
+  "content_scripts": [
+    {
+        "matches": ["<all_urls>"],
+        "js": ["scripts/content.js"],
+        "run_at": "document_end"
+    }
+  ],
+  "permissions": ["scripting"],
+  "host_permissions": ["<all_urls>"],
+  "action": {
+    "default_icon": "icons/nyt_crossword_logo.png"
+  },
+  "manifest_version": 3
+}
