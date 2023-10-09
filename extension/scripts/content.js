@@ -1,8 +1,44 @@
-console.log("HI");
-const getAlternateClue = function (clue_text) {
+function getAlternateClue(clue_text) {
   return "Testing for now lol";
 };
-const swapClue = function (text) {
+function createModal(data) {
+  return `
+    <div class="modal-system-container">
+      <div class="xwd__modal--wrapper">
+        <div id="modalWrapper-overlay" role="none" class="xwd__modal--overlay"></div>
+        <div role="textbox" class="xwd__modal--body animate-opening">
+          <div role="button" aria-label="close" class="xwd__modal--close" tabindex="0">
+            <i class="pz-icon pz-icon-close"></i>
+          </div>
+          <article class="xwd__modal--content>
+            <h1 class="pz-moment__title medium karnak">Are You Sure?</h1>
+            <div class="xwd__modal--button-container">
+              <button type="button" class="pz-moment__button" aria-disabled="false" aria-label="Confirm">
+                <span>Confirm</span>
+              </button>
+            </div>
+          </article>
+        </div>
+      </div>
+    </div>
+  `
+};
+function showModal() {
+  var data = {}
+  portalGameModals = document.querySelector("#portal-game-modals");
+  portalGameModals.insertAdjacentHTML("afterbegin", createModal(data))
+  // When the modal closing button is clicked, perform closing information and give info that 
+  // they don't want to see the new question
+  modalCloseButton = document.querySelector(".xwd__modal--close")
+  modalBody = document.querySelector(".xwd__modal--body")
+  modalContainer = document.querySelector(".modal-system-container")
+  modalCloseButton.onclick = function () {
+    modalBody.classList.toggle("closing");
+    setTimeout(() => modalContainer.remove(), 200);
+    return false
+  };
+};
+function swapClue(text) {
   return function () {
     var allClues = document.querySelectorAll(".xwd__clue--text");
     var i = 0;
@@ -13,17 +49,21 @@ const swapClue = function (text) {
     actualClue = allClues[i];
     parentClue = actualClue.parentElement;
     alternateClue = parentClue.querySelector(".xwd__clue--alternate");
+    clueButton = parentClue.querySelector(".xwd__clue--alternate-button")
     if (
       alternateClue.style.display === "" ||
       alternateClue.style.display === "none"
     ) {
+      showModal();
       console.log("Swapping Clues!");
       actualClue.style.display = "none";
       alternateClue.style.display = "block";
+      clueButton.innerHTML = "Hide";
     } else {
       console.log("Swapping Back!");
       actualClue.style.display = "block";
       alternateClue.style.display = "none";
+      clueButton.innerHTML = "Show";
     }
   };
 };
@@ -47,6 +87,4 @@ if (window.location.href.includes("nytimes.com/crosswords/game")) {
     alternateClueButton.onclick = swapClue(clueText);
     clue.appendChild(alternateClueButton);
   });
-  // Create a modal interface warning the user that they are trying to show an easier clue
-  
 }
