@@ -1,6 +1,26 @@
+head = document.querySelector("head");
+head.insertAdjacentHTML("afterbegin",`<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>`);
+import { ajax } from "jquery";
+
 function getAlternateClue(clue_text) {
   return "Testing for now lol";
-};
+}
+function getClueAnswer(clue_text) {
+  ajax({
+    type: "POST",
+    url: "~/clue_solver.py",
+    data: { param: clue_text },
+    success: function(response)
+    {
+      console.log(response);
+    },
+    error: function()
+    {
+      alert("Could not solve clue");
+    }
+  });
+}
+
 function createModal(data) {
   return `
     <div class="modal-system-container">
@@ -21,23 +41,23 @@ function createModal(data) {
         </div>
       </div>
     </div>
-  `
-};
+  `;
+}
 function showModal() {
-  var data = {}
+  var data = {};
   portalGameModals = document.querySelector("#portal-game-modals");
-  portalGameModals.insertAdjacentHTML("afterbegin", createModal(data))
-  // When the modal closing button is clicked, perform closing information and give info that 
+  portalGameModals.insertAdjacentHTML("afterbegin", createModal(data));
+  // When the modal closing button is clicked, perform closing information and give info that
   // they don't want to see the new question
-  modalCloseButton = document.querySelector(".xwd__modal--close")
-  modalBody = document.querySelector(".xwd__modal--body")
-  modalContainer = document.querySelector(".modal-system-container")
+  modalCloseButton = document.querySelector(".xwd__modal--close");
+  modalBody = document.querySelector(".xwd__modal--body");
+  modalContainer = document.querySelector(".modal-system-container");
   modalCloseButton.onclick = function () {
     modalBody.classList.toggle("closing");
     setTimeout(() => modalContainer.remove(), 200);
-    return false
+    return false;
   };
-};
+}
 function swapClue(text) {
   return function () {
     var allClues = document.querySelectorAll(".xwd__clue--text");
@@ -49,7 +69,7 @@ function swapClue(text) {
     actualClue = allClues[i];
     parentClue = actualClue.parentElement;
     alternateClue = parentClue.querySelector(".xwd__clue--alternate");
-    clueButton = parentClue.querySelector(".xwd__clue--alternate-button")
+    clueButton = parentClue.querySelector(".xwd__clue--alternate-button");
     if (
       alternateClue.style.display === "" ||
       alternateClue.style.display === "none"
@@ -66,7 +86,7 @@ function swapClue(text) {
       clueButton.innerHTML = "Show";
     }
   };
-};
+}
 
 if (window.location.href.includes("nytimes.com/crosswords/game")) {
   const clueLists = document.querySelector(".xwd__layout--cluelists");
@@ -84,7 +104,7 @@ if (window.location.href.includes("nytimes.com/crosswords/game")) {
     const alternateClueButton = document.createElement("button");
     alternateClueButton.className = "xwd__clue--alternate-button";
     alternateClueButton.innerHTML = "Show";
-    alternateClueButton.onclick = swapClue(clueText);
+    alternateClueButton.onclick =  getClueAnswer(clueText); // swapClue(clueText);
     clue.appendChild(alternateClueButton);
   });
 }
