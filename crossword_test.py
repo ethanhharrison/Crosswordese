@@ -1,5 +1,3 @@
-import string
-import random
 from crossword import Tile, GameBoard
 
 # Board size
@@ -8,14 +6,15 @@ SIZE = 2
 # Create tiles
 def tile_row():
     row = []
-    for _ in range(SIZE):
-        row.append(Tile(False, random.choice(string.ascii_uppercase)))
+    for _ in range(SIZE-1):
+        row.append(Tile(False, "a"))
+    row.append(Tile(True, "/"))
     return row
 
 
 def main():
     tile_grid = [tile_row() for _ in range(SIZE)]
-    board = GameBoard(tile_grid, None, None)
+    board = GameBoard(tile_grid)
     print(board)
     while not board.is_complete():
         # Ask for a tile position
@@ -25,7 +24,7 @@ def main():
             position = [int(pos) for pos in position]
         # Ask for a value    
         value = None    
-        while not value or not board.fill_tile(value):
+        while not value or not board.update_tile(value):
             value = input("Choose the value of the tile: ")
         # Show board
         print(board)
