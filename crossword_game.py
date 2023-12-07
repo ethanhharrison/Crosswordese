@@ -12,15 +12,15 @@ display_surface = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 
 
 # select font
-font = pygame.font.Font('freesansbold.ttf', 32)
-
+entry_font = pygame.font.Font('freesansbold.ttf', 32)
+clue_number_font = pygame.font.Font('freesansbold.ttf', 12)
 
 # get board
-options = parse_crossword_json('nyt_crosswords-master/2018/03/09.json')
-board = GameBoard(*options)
+rows, cols, clues = parse_crossword_json("nyt_crosswords-master/2017/05/15.json")
+board = GameBoard(rows, cols, clues)
 board.assign_clues_to_tiles()
 board.assign_blocked_tiles()
-board.get_tile(0, 0).current_entry = "A"
+board.selected_tile.selected = True
 
 
 while True:
@@ -30,7 +30,7 @@ while True:
             pygame.quit()
             
     # Change background color    
-    bg_color = pygame.Color(255, 255, 255)
+    bg_color = pygame.Color("white")
     display_surface.fill(bg_color)
     
     
@@ -42,15 +42,26 @@ while True:
     # Draw tiles
     padding = round(0.05 * SCREEN_HEIGHT)
     tile_size = round((0.9 * SCREEN_HEIGHT) // board.rows)
-    tiles_display = board.display_tiles(padding, tile_size)
-    for color, rect in tiles_display:
-        pygame.draw.rect(display_surface, color, rect)
-        
-        
-    # Draw text
-    text_display = board.display_current_entries(padding, tile_size, font)
-    for text, text_rect in text_display:
-        display_surface.blit(text, text_rect) # type: ignore
+    display = board.display_tiles(padding, tile_size, entry_font)
+    for clue in clues:
+        clue.highlight_clue()
+    for border_display, text_display in display:
+        # Draw borders
+        for color, rect in border_display:
+            pygame.draw.rect(display_surface, color, rect)
+        # Draw entry text
+        for text, text_rect in text_display:
+            display_surface.blit(text, text_rect)
+    
+    
+    # Draw clue text
+    for clue in clues:
+        num_down, num_across = clue.position
+        tile = board.get_tile(num_down, num_across)
+        x_pos = padding + tile_size * num_across
+        y_pos = padding + tile_size * num_down + 3
+        text_display = tile.display_clue_number(clue.number, x_pos, y_pos, clue_number_font)
+        display_surface.blit(*text_display)
     
     
     # Update screen

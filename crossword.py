@@ -20,6 +20,8 @@ class Tile:
     correct_entry: str = " "
     current_entry: str = " "
     empty: bool = True
+    selected: bool = False
+    highlighted: bool = False
     down_clue: Optional[Clue] = None
     across_clue: Optional[Clue] = None
     
@@ -30,14 +32,6 @@ class Tile:
             self.down_clue = clue
         elif orientation == "across":
             self.across_clue = clue
-            
-    
-    def display_clues(self):
-        """Display the clues for the player"""
-        if self.down_clue:
-            print("Down:", self.down_clue)
-        if self.across_clue:
-            print("Across:", self.across_clue)
     
     
     def is_correct(self) -> bool:
@@ -65,10 +59,16 @@ class Tile:
             self.empty = False
             
             
-    def display_tile(self, x_pos: int, y_pos: int, size: int):
+    def display_border(self, x_pos: int, y_pos: int, size: int):
         black_rect = pygame.Rect(x_pos, y_pos, size, size)
         yield pygame.Color("black"), black_rect
-        if not self.blocked:
+        if self.selected:
+            gold_rect = pygame.Rect(x_pos + 2, y_pos + 2, size - 4, size - 4)
+            yield pygame.Color(255, 217, 2), gold_rect
+        elif self.highlighted:
+            blue_rect = pygame.Rect(x_pos + 2, y_pos + 2, size - 4, size - 4)
+            yield pygame.Color(167,216,254), blue_rect
+        elif not self.blocked:
             white_rect = pygame.Rect(x_pos + 2, y_pos + 2, size - 4, size - 4)
             yield pygame.Color("white"), white_rect
     
@@ -79,6 +79,21 @@ class Tile:
             text_rect = text.get_rect()
             text_rect.center = (x_pos + size // 2 - 1, y_pos + size // 2 + 1)
             yield text, text_rect
+            
+            
+    def display_clue_number(self, number: int, x_pos: int, y_pos: int, font):
+        text = font.render(str(number), True, "black")
+        text_rect = text.get_rect()
+        text_rect.topleft = (x_pos + 4, y_pos)
+        return text, text_rect
+            
+        
+    def print_clues(self):
+        """Display the clues for the player"""
+        if self.down_clue:
+            print("Down:", self.down_clue)
+        if self.across_clue:
+            print("Across:", self.across_clue)
             
             
     def __str__(self) -> str:
@@ -104,11 +119,24 @@ class Clue:
         if self.tiles == []:
             raise ValueError("No tiles connected to clue")
         for value, tile in zip(self.solution, self.tiles):
+            print(self)
+            print(self.position)
+            print(tile.correct_entry, value)
             if tile.correct_entry == " " or tile.correct_entry == value:
                 tile.assign_clue(self, self.orientation)
                 tile.correct_entry = value
             else:
                 raise InvalidPuzzleError("Puzzle has conflicting clues")
+    
+    
+    def highlight_clue(self) -> None:
+        if any(tile.selected for tile in self.tiles):
+            print(self)
+            for tile in self.tiles:
+                tile.highlighted = True
+        else:
+            for tile in self.tiles:
+                tile.highlighted = False
     
     
     def __str__(self) -> str:
@@ -117,15 +145,15 @@ class Clue:
 
 class GameBoard:
     """Class for creating the game board"""
-    def __init__(self, cols: int, rows: int, clues: list[Clue]) -> None:
-        self.cols = cols
+    def __init__(self, rows: int, cols: int, clues: list[Clue]) -> None:
         self.rows = rows
+        self.cols = cols
         self.clues = clues
-        self.tiles = self.make_tile_grid(cols, rows)
+        self.tiles = self.make_tile_grid(rows, cols)
         self.selected_tile = self.get_tile(0, 0)
     
     
-    def make_tile_grid(self, cols: int, rows: int) -> list[list[Tile]]:
+    def make_tile_grid(self, rows: int, cols: int) -> list[list[Tile]]:
         """Make a tile grid for the board"""
         return [[Tile(False) for _ in range(cols)] for _ in range(rows)]
     
@@ -139,7 +167,7 @@ class GameBoard:
             sol_size = len(clue.solution)
             if clue.orientation == "across":
                 clue.tiles = [self.get_tile(num_down, num_across+i) for i in range(sol_size)]
-            elif clue.orientation == "down":
+            if clue.orientation == "down":
                 clue.tiles = [self.get_tile(num_down+i, num_across) for i in range(sol_size)]
             clue.update_tile_solutions()
             
@@ -175,7 +203,9 @@ class GameBoard:
     def change_selected_tile(self, num_down: int, num_across: int) -> None:
         """Change the selected tile"""
         new_tile = self.get_tile(num_down, num_across)
+        self.selected_tile.selected = False
         self.selected_tile = new_tile
+        self.selected_tile.selected = True
             
                  
     def update_tile_entry(self, value: str) -> None:
@@ -196,25 +226,17 @@ class GameBoard:
         return board_color, board_rect
     
     
-    def display_tiles(self, padding: int, tile_size: int):
+    def display_tiles(self, padding: int, tile_size: int, font):
         for i in range(len(self.tiles)):
             row = self.tiles[i]
             for j in range(len(row)):   
                 tile = row[j]
-                x_pos = padding + tile_size * i
-                y_pos = padding + tile_size * j
-                yield from tile.display_tile(x_pos, y_pos, tile_size)
+                x_pos = padding + tile_size * j
+                y_pos = padding + tile_size * i
+                tile_display = tile.display_border(x_pos, y_pos, tile_size)
+                text_display = tile.display_current_entry(x_pos, y_pos, tile_size, font)
+                yield tile_display, text_display
                 
-                
-    def display_current_entries(self, padding: int, tile_size: int, font):
-        for i in range(len(self.tiles)):
-            row = self.tiles[i]
-            for j in range(len(row)):   
-                tile = row[j]
-                x_pos = padding + tile_size * i
-                y_pos = padding + tile_size * j
-                yield from tile.display_current_entry(x_pos, y_pos, tile_size, font)
-            
     
     def __str__(self) -> str:
         output = ""
