@@ -1,8 +1,8 @@
 from __future__ import annotations
-from asyncore import close_all
 from dataclasses import dataclass, field
 from typing import Optional
 import string
+import pygame
 
 
 class InvalidPuzzleError(BaseException):
@@ -63,6 +63,22 @@ class Tile:
         if self.empty:
             self.current_entry = " "
             self.empty = False
+            
+            
+    def display_tile(self, x_pos: int, y_pos: int, size: int):
+        black_rect = pygame.Rect(x_pos, y_pos, size, size)
+        yield pygame.Color("black"), black_rect
+        if not self.blocked:
+            white_rect = pygame.Rect(x_pos + 2, y_pos + 2, size - 4, size - 4)
+            yield pygame.Color("white"), white_rect
+    
+    
+    def display_current_entry(self, x_pos: int, y_pos: int, size: int, font):
+        if self.current_entry != " ":
+            text = font.render(self.current_entry, True, "black")
+            text_rect = text.get_rect()
+            text_rect.center = (x_pos + size // 2 - 1, y_pos + size // 2 + 1)
+            yield text, text_rect
             
             
     def __str__(self) -> str:
@@ -168,6 +184,36 @@ class GameBoard:
             self.selected_tile.remove()
         else:
             self.selected_tile.fill(value)
+            
+            
+    def display_board(self, screen_height: int):
+        padding = round(0.05 * screen_height)
+        tile_size = round((0.9 * screen_height) // self.rows)
+        board_width = tile_size * self.cols + 4
+        board_height = tile_size * self.rows + 4
+        board_rect = pygame.Rect(padding - 2, padding - 2, board_width, board_height)
+        board_color = pygame.Color("black")
+        return board_color, board_rect
+    
+    
+    def display_tiles(self, padding: int, tile_size: int):
+        for i in range(len(self.tiles)):
+            row = self.tiles[i]
+            for j in range(len(row)):   
+                tile = row[j]
+                x_pos = padding + tile_size * i
+                y_pos = padding + tile_size * j
+                yield from tile.display_tile(x_pos, y_pos, tile_size)
+                
+                
+    def display_current_entries(self, padding: int, tile_size: int, font):
+        for i in range(len(self.tiles)):
+            row = self.tiles[i]
+            for j in range(len(row)):   
+                tile = row[j]
+                x_pos = padding + tile_size * i
+                y_pos = padding + tile_size * j
+                yield from tile.display_current_entry(x_pos, y_pos, tile_size, font)
             
     
     def __str__(self) -> str:
