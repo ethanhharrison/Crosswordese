@@ -12,8 +12,8 @@ def get_clue_positons(crossword_data: dict) -> dict[int, tuple[int, int]]:
     size = crossword_data["size"]
     gridnums = crossword_data["gridnums"]
     clue_positions = {}
-    for i in range(size["cols"]):
-        for j in range(size["rows"]):
+    for i in range(size["rows"]):
+        for j in range(size["cols"]):
             clue_number = gridnums[i*size["cols"]+j]
             if clue_number > 0:
                 clue_positions[clue_number] = (i, j)

@@ -3,8 +3,8 @@ from crossword import BlockedTileError, GameBoard, Clue
 
 
 def main() -> None:
-    options = parse_crossword_json('nyt_crosswords-master/2018/03/09.json')
-    board = GameBoard(*options)
+    rows, cols, clues = parse_crossword_json('nyt_crosswords-master/2017/05/15.json')
+    board = GameBoard(rows, cols, clues)
     board.assign_clues_to_tiles()
     board.assign_blocked_tiles()
     print(board)
@@ -16,7 +16,7 @@ def main() -> None:
             board.change_selected_tile(*position)
             # Show current position and clues
             print("Chosen Position:", position)
-            board.selected_tile.display_clues()
+            board.selected_tile.print_clues()
             # Ask for a value    
             value = input("Choose the value of the tile: ")
             board.update_tile_entry(value)
