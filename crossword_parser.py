@@ -20,20 +20,22 @@ def get_clue_positons(crossword_data: dict) -> dict[int, tuple[int, int]]:
     return clue_positions
 
 
-def get_clues(crossword_data: dict, clue_positions: dict) -> list[Clue]:
+def parse_clue(clue: str, answer: str, orientation: str, positions: dict) -> Clue:
+    number, question = clue.split(". ", 1)
+    position = positions[int(number)]
+    return Clue(int(number), question, answer, orientation, position)
+    
+
+def get_clues(crossword_data: dict, positions: dict) -> list[Clue]:
     clues = crossword_data["clues"]
     answers = crossword_data["answers"]
-    down_clues, across_clues = clues["down"], clues["across"]
-    down_answers, across_answers = answers["down"], answers["across"]
     parsed_clues = []
-    for clue, answer in zip(down_clues, down_answers):   
-        number, question = clue.split(". ", 1)
-        position = clue_positions[int(number)]
-        parsed_clues.append(Clue(int(number), question, answer, "down", position))
-    for clue, answer in zip(across_clues, across_answers):
-        number, question = clue.split(". ", 1)
-        position = clue_positions[int(number)]
-        parsed_clues.append(Clue(int(number), question, answer, "across", position))
+    for clue, answer in zip(clues["down"], answers["down"]):   
+        parsed_clue = parse_clue(clue, answer, "down", positions)
+        parsed_clues.append(parsed_clue)
+    for clue, answer in zip(clues["across"], answers["across"]):
+        parsed_clue = parse_clue(clue, answer, "across", positions)
+        parsed_clues.append(parsed_clue)
     return parsed_clues
     
     
