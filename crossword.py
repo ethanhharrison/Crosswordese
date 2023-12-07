@@ -1,28 +1,40 @@
+from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
+import string
 
 
-@dataclass
-class Clue:
-    number: int
-    question: str
-    solution: str
-    orientation: str
-    
-    
-    def connect_clues(self, other_clues):
-        self.connected_clues = other_clues
+class InvalidPuzzleError(BaseException):
+    pass
+class BlockedTileError(BaseException):
+    pass
+class NoSelectedTileError(BaseException):
+    pass
 
 
 @dataclass
 class Tile:
     """Class for keeping track of a game tile"""
     blocked: bool
-    correct_entry: str
+    correct_entry: str = " "
     current_entry: str = " "
     empty: bool = True
-    across_clue: Optional[Clue] = None
     down_clue: Optional[Clue] = None
+    across_clue: Optional[Clue] = None
+    
+        
+    def assign_clue(self, clue: Clue, orientation: str) -> None:
+        if orientation == "down":
+            self.down_clue = clue
+        elif orientation == "across":
+            self.across_clue = clue
+            
+    
+    def display_clues(self):
+        if self.down_clue:
+            print("Down:", self.down_clue)
+        if self.across_clue:
+            print("Across:", self.across_clue)
     
     
     def is_correct(self) -> bool:
@@ -30,25 +42,24 @@ class Tile:
         return self.blocked or self.correct_entry == self.current_entry
     
     
-    def fill(self, value: str) -> bool:
+    def fill(self, value: str) -> None:
         """Fills the tile's current entry with the given value"""
         if self.blocked:
-            print("Cannot fill blocked tile")
-            return False
-        if len(value) > 1:
-            print("Value is too long")
-            return False
+            raise BlockedTileError("Cannot fill blocked tile")
+        elif len(value) > 1:
+            raise ValueError("Value is too long")
+        elif value not in string.ascii_uppercase:
+            raise ValueError("Invalid character")
         else:
             self.current_entry = value
             self.empty = True
-            return True
         
-    def remove(self) -> bool:
+        
+    def remove(self) -> None:
         """Removes the tile's current entry"""
         if self.empty:
             self.current_entry = " "
             self.empty = False
-        return True
             
             
     def __str__(self) -> str:
@@ -56,26 +67,69 @@ class Tile:
             return "[/]"
         else:
             return f"[{self.current_entry}]"
+
+
+@dataclass
+class Clue:
+    """Class for defining clues and their associated tiles"""
+    number: int
+    question: str
+    solution: str
+    orientation: str
+    position: tuple[int, int]
+    tiles: list[Tile]
+    
+    
+    def update_tile_solutions(self) -> None:
+        """Updates the solution for each tile of that clue"""
+        if self.tiles == []:
+            raise ValueError("No tiles connected to clue")
+        for value, tile in zip(self.solution, self.tiles):
+            if tile.correct_entry == " " or tile.correct_entry == value:
+                tile.assign_clue(self, self.orientation)
+                tile.correct_entry = value
+            else:
+                raise InvalidPuzzleError("Puzzle has conflicting clues")
+    
+    
+    def __str__(self) -> str:
+        return f"{self.question} -> {self.solution}"
     
 
-# Create the board
-@dataclass
 class GameBoard:
     """Class for creating the game board"""
-    tiles: list[list[Tile]]
-    clues: Optional[list[Clue]] = None
+    def __init__(self, tiles: list[list[Tile]], clues: list[Clue]) -> None:
+        self.tiles = tiles
+        self.clues = clues
+        self.selected_tile = self.get_tile(0, 0)
     
     
-    def assign_clues_to_tiles(self):
-        pass
+    def assign_clues_to_tiles(self) -> None:
+        if self.clues is None:
+            return
+        for clue in self.clues:
+            num_down, num_across = clue.position[0], clue.position[1]
+            sol_size = len(clue.solution)
+            if clue.orientation == "across":
+                clue.tiles = [self.get_tile(num_down, num_across+i) for i in range(sol_size)]
+            elif clue.orientation == "down":
+                clue.tiles = [self.get_tile(num_down+i, num_across) for i in range(sol_size)]
+            clue.update_tile_solutions()
+            
+            
+    def assign_blocked_tiles(self) -> None:
+        for row in self.tiles:
+            for tile in row:
+                if tile.correct_entry == " ":
+                    tile.blocked = True
+        
     
-    
-    def size(self):
+    def size(self) -> int:
         """The size of one axis of the board"""
         return len(self.tiles[0])
         
     
-    def is_complete(self):
+    def is_complete(self) -> bool:
         """Check if board is complete"""
         for row in self.tiles:
             if any([not tile.is_correct() for tile in row]):
@@ -83,26 +137,30 @@ class GameBoard:
         return True
     
     
-    def select_tile(self, x: int, y: int) -> bool:
+    def get_tile(self, num_down: int, num_across: int) -> Tile:
         """Given the x and y coordinates, selects a tile on the board"""
-        if x < 0 or y < 0 or x >= self.size() or y >= self.size():
-            print("Invalid tile position")
-            return False
-        elif self.tiles[x][y].blocked:
-            print("Cannot select a blocked tile")
-            return False
+        if num_down < 0 or num_across < 0: 
+            raise ValueError("Invalid tile position")
+        elif num_down >= self.size() or num_across >= self.size():
+            raise ValueError("Invalid tile position")
+        elif self.tiles[num_down][num_across].blocked:
+            raise BlockedTileError("Cannot select a blocked tile")
         else:
-            self.selected_tile = self.tiles[x][y]
-            return True
+            return self.tiles[num_down][num_across]
+        
+        
+    def change_selected_tile(self, num_down: int, num_across: int) -> None:
+        new_tile = self.get_tile(num_down, num_across)
+        self.selected_tile = new_tile
             
                  
-    def update_tile(self, value: str) -> bool:
+    def update_tile_entry(self, value: str) -> None:
         """Adds or removes value to the selected tile"""
         if value == "delete":
-            return self.selected_tile.remove()
+            self.selected_tile.remove()
         else:
-            return self.selected_tile.fill(value)
-    
+            self.selected_tile.fill(value)
+            
     
     def __str__(self) -> str:
         output = ""
