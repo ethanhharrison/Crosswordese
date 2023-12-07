@@ -129,7 +129,7 @@ class Clue:
     num_across: int
     tiles: list[Tile] = field(default_factory=list)
     
-    def connect_tiles(self, tiles) -> None:
+    def connect_tiles(self, tiles: list[Tile]) -> None:
         self.tiles = tiles
 
     def update_tile_solutions(self) -> None:
@@ -159,6 +159,7 @@ class GameBoard:
         self.clues = clues
         self.tiles = self.make_tile_grid(rows, cols)
         self.selected_tile = self.get_tile(0, 0)
+        
 
     def make_tile_grid(self, rows: int, cols: int) -> list[list[Tile]]:
         """Make a tile grid for the board"""
@@ -208,6 +209,20 @@ class GameBoard:
         self.selected_tile.selected = False
         self.selected_tile = new_tile
         self.selected_tile.selected = True
+        
+    def move(self, orientation: str, direction: int) -> None:
+        num_down = self.selected_tile.num_down
+        num_across = self.selected_tile.num_across
+        if orientation == "across":
+            try:
+                new_tile = self.get_tile(num_down, num_across + direction)
+                pass
+            except BlockedTileError:
+                num_across += direction
+            self.change_selected_tile(num_down, num_across)
+        elif orientation == "down":
+            pass
+            self.change_selected_tile(num_down, num_across)
 
     def update_tile_entry(self, value: str) -> None:
         """Adds or removes value to the selected tile"""
@@ -230,8 +245,6 @@ class GameBoard:
             row = self.tiles[i]
             for j in range(len(row)):
                 tile = row[j]
-                x_pos = padding + tile_size * tile.num_across
-                y_pos = padding + tile_size * tile.num_down
                 tile_display = tile.display_border(padding, tile_size, 2)
                 text_display = tile.display_current_entry(padding, tile_size, font)
                 yield tile_display, text_display
@@ -245,3 +258,10 @@ class GameBoard:
                 output += str(tile)
             output += "\n"
         return output
+
+def create_board(rows: int, cols: int, clues: list[Clue]) -> GameBoard:
+    board = GameBoard(rows, cols, clues)
+    board.assign_clues_to_tiles()
+    board.assign_blocked_tiles()
+    board.selected_tile.selected = True
+    return board
