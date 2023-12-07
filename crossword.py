@@ -1,5 +1,6 @@
 from __future__ import annotations
-from dataclasses import dataclass
+from asyncore import close_all
+from dataclasses import dataclass, field
 from typing import Optional
 import string
 
@@ -24,6 +25,7 @@ class Tile:
     
         
     def assign_clue(self, clue: Clue, orientation: str) -> None:
+        """Attach tile to an associated clue"""
         if orientation == "down":
             self.down_clue = clue
         elif orientation == "across":
@@ -31,6 +33,7 @@ class Tile:
             
     
     def display_clues(self):
+        """Display the clues for the player"""
         if self.down_clue:
             print("Down:", self.down_clue)
         if self.across_clue:
@@ -77,7 +80,7 @@ class Clue:
     solution: str
     orientation: str
     position: tuple[int, int]
-    tiles: list[Tile]
+    tiles: list[Tile] = field(default_factory=list) 
     
     
     def update_tile_solutions(self) -> None:
@@ -98,13 +101,21 @@ class Clue:
 
 class GameBoard:
     """Class for creating the game board"""
-    def __init__(self, tiles: list[list[Tile]], clues: list[Clue]) -> None:
-        self.tiles = tiles
+    def __init__(self, cols: int, rows: int, clues: list[Clue]) -> None:
+        self.cols = cols
+        self.rows = rows
         self.clues = clues
+        self.tiles = self.make_tile_grid(cols, rows)
         self.selected_tile = self.get_tile(0, 0)
     
     
+    def make_tile_grid(self, cols: int, rows: int) -> list[list[Tile]]:
+        """Make a tile grid for the board"""
+        return [[Tile(False) for _ in range(cols)] for _ in range(rows)]
+    
+    
     def assign_clues_to_tiles(self) -> None:
+        """Assigns clues to tiles in the grid then updates the tiles' solutionsxs"""
         if self.clues is None:
             return
         for clue in self.clues:
@@ -118,15 +129,11 @@ class GameBoard:
             
             
     def assign_blocked_tiles(self) -> None:
+        """Make any tile with an empty correct solution a blocked tile"""
         for row in self.tiles:
             for tile in row:
                 if tile.correct_entry == " ":
                     tile.blocked = True
-        
-    
-    def size(self) -> int:
-        """The size of one axis of the board"""
-        return len(self.tiles[0])
         
     
     def is_complete(self) -> bool:
@@ -141,7 +148,7 @@ class GameBoard:
         """Given the x and y coordinates, selects a tile on the board"""
         if num_down < 0 or num_across < 0: 
             raise ValueError("Invalid tile position")
-        elif num_down >= self.size() or num_across >= self.size():
+        elif num_down >= self.rows or num_across >= self.cols:
             raise ValueError("Invalid tile position")
         elif self.tiles[num_down][num_across].blocked:
             raise BlockedTileError("Cannot select a blocked tile")
@@ -150,6 +157,7 @@ class GameBoard:
         
         
     def change_selected_tile(self, num_down: int, num_across: int) -> None:
+        """Change the selected tile"""
         new_tile = self.get_tile(num_down, num_across)
         self.selected_tile = new_tile
             
