@@ -4,7 +4,7 @@ import pygame
 
 
 # get board
-rows, cols, clues = parse_crossword_json("nyt_crosswords-master/2017/05/15.json")
+rows, cols, clues = parse_crossword_json("nyt_crosswords-master/2009/05/14.json")
 board = create_board(rows, cols, clues)
 orientation = "across"
 

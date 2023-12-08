@@ -103,18 +103,13 @@ class Tile:
         text_rect.topleft = (x_pos + 4, y_pos - 1)
         return text, text_rect
 
-    def print_clues(self) -> None:
-        """Display the clues for the player"""
-        if self.down_clue:
-            print("Down:", self.down_clue)
-        if self.across_clue:
-            print("Across:", self.across_clue)
-
     def __str__(self) -> str:
         if self.blocked:
             return "[/]"
-        else:
+        elif self.current_entry:
             return f"[{self.current_entry}]"
+        else:
+            return "[ ]"
 
 
 @dataclass
@@ -303,8 +298,6 @@ class GameBoard:
     
     def __str__(self) -> str:
         output = ""
-        for clue in self.clues:
-            output += f"{clue}\n"
         for row in self.tiles:
             for tile in row:
                 output += str(tile)
