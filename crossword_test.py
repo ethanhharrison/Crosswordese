@@ -1,5 +1,5 @@
 from crossword_parser import parse_crossword_json
-from crossword import BlockedTileError, GameBoard, Clue
+from crossword import BlockedTileError, GameBoard
 
 
 def main() -> None:
@@ -9,14 +9,11 @@ def main() -> None:
     board.assign_blocked_tiles()
     print(board)
     while not board.is_complete():
-        # Ask for a tile position
         try:
+            # Ask for a tile position
             position = input("Choose a tile to select: ").split(" ")
             position = [int(pos) for pos in position]
             board.change_selected_tile(*position)
-            # Show current position and clues
-            print("Chosen Position:", position)
-            board.selected_tile.print_clues()
             # Ask for a value    
             value = input("Choose the value of the tile: ")
             board.update_tile_entry(value)
