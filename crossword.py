@@ -1,6 +1,6 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Generator, Optional
 import string
 import pygame
 
@@ -65,7 +65,7 @@ class Tile:
         """Removes the tile's current entry"""
         self.current_entry = ""
 
-    def display_border(self, padding: int, size: int, border_width: int):
+    def display_border(self, padding: int, size: int, border_width: int) -> Generator:
         x_pos = padding + size * self.num_across
         y_pos = padding + size * self.num_down
         outer_rect = pygame.Rect(x_pos, y_pos, size, size)
@@ -78,7 +78,7 @@ class Tile:
         if self.blocked:
             yield pygame.Color("black"), outer_rect
         else:
-            yield pygame.Color(105, 105, 105), outer_rect
+            yield pygame.Color(161, 161, 161), outer_rect
         if self.selected:
             yield pygame.Color(255, 217, 2), inner_rect
         elif self.highlighted:
@@ -86,16 +86,16 @@ class Tile:
         elif not self.blocked:
             yield pygame.Color(255, 255, 255), inner_rect
 
-    def display_current_entry(self, padding: int, size: int, font):
+    def display_current_entry(self, padding: int, size: int, font) -> Generator:
         x_pos = padding + size * self.num_across
         y_pos = padding + size * self.num_down
         if self.current_entry:
             text = font.render(self.current_entry, True, "black")
             text_rect = text.get_rect()
-            text_rect.center = (x_pos + size // 2 - 1, y_pos + size // 2 + 1)
+            text_rect.center = (x_pos + size // 2 - 1, y_pos + size // 2 + 5)
             yield text, text_rect
 
-    def display_clue_number(self, number: int, padding: int, size: int, font):
+    def display_clue_number(self, number: int, padding: int, size: int, font) -> tuple:
         x_pos = padding + size * self.num_across
         y_pos = padding + size * self.num_down
         text = font.render(str(number), True, "black")
@@ -103,7 +103,7 @@ class Tile:
         text_rect.topleft = (x_pos + 4, y_pos - 1)
         return text, text_rect
 
-    def print_clues(self):
+    def print_clues(self) -> None:
         """Display the clues for the player"""
         if self.down_clue:
             print("Down:", self.down_clue)
@@ -197,7 +197,7 @@ class GameBoard:
                 return False
         return True
 
-    def in_bounds(self, num_down, num_across):
+    def in_bounds(self, num_down, num_across) -> bool:
         if num_down < 0 or num_across < 0:
             return False
         elif num_down >= self.rows or num_across >= self.cols:
@@ -230,6 +230,12 @@ class GameBoard:
                 num_across += direction
             else:
                 num_down += direction
+            if num_down < 0 or num_across < 0:
+                self.move_to_next_clue(orientation, -1)
+                still_moving = True
+            elif num_down >= self.rows or num_across >= self.cols:
+                self.move_to_next_clue(orientation, 1)
+                still_moving = True
             if self.in_bounds(num_down, num_across):
                 try:
                     self.change_selected_tile(num_down, num_across)
@@ -238,6 +244,17 @@ class GameBoard:
                     pass
             else:
                 still_moving = False
+                
+    def move_to_next_clue(self, orientation, direction) -> None:
+        if orientation == "across":
+            current_clue = self.selected_tile.across_clue
+        else:
+            current_clue = self.selected_tile.down_clue
+        if current_clue:
+            next_clues = [clue for clue in self.clues if clue.orientation == orientation]
+            current_index = next_clues.index(current_clue)
+            next_clue = next_clues[(current_index + direction) % len(next_clues)]
+            self.change_selected_tile(next_clue.num_down, next_clue.num_across)
 
     def update_tile_entry(self, value: str) -> None:
         """Adds or removes value to the selected tile"""
@@ -246,9 +263,7 @@ class GameBoard:
         else:
             self.selected_tile.fill(value)
 
-    def display_board(self, screen_height: int, border_width: int):
-        padding = round(0.05 * screen_height)
-        tile_size = round((0.9 * screen_height) // self.rows)
+    def display_board(self, padding: int, tile_size: int, border_width: int) -> tuple:
         board_width = tile_size * self.cols + border_width
         board_height = tile_size * self.rows + border_width
         offset = padding - border_width // 2
@@ -256,7 +271,7 @@ class GameBoard:
         board_color = pygame.Color("black")
         return board_color, board_rect
 
-    def display_tiles(self, padding: int, tile_size: int, font):
+    def display_tiles(self, padding: int, tile_size: int, font) -> Generator:
         for i in range(len(self.tiles)):
             row = self.tiles[i]
             for j in range(len(row)):
@@ -264,7 +279,28 @@ class GameBoard:
                 tile_display = tile.display_border(padding, tile_size, 1)
                 text_display = tile.display_current_entry(padding, tile_size, font)
                 yield tile_display, text_display
-
+                
+    def display_question(self, orientation: str, padding: int, tile_size: int, font) -> tuple[tuple, tuple]:
+        clue_bg_color = pygame.Color(221, 239, 255)
+        x_pos = padding
+        y_pos = padding + tile_size * self.rows + 10
+        clue_rect = pygame.Rect(x_pos, y_pos, tile_size * self.cols, 75)
+        
+        current_tile = self.selected_tile
+        question = ""
+        if orientation == "down" and current_tile.down_clue:
+            question += f"{current_tile.down_clue.number}D"
+            question += f"     {current_tile.down_clue.question}"
+        elif orientation == "across" and current_tile.across_clue:
+            question += f"{current_tile.across_clue.number}A"
+            question += f"     {current_tile.across_clue.question}"
+        
+        question_text = font.render(question, True, "black")
+        question_text_rect = question_text.get_rect()
+        question_text_rect.topleft = (x_pos + 25, y_pos + 25)
+        
+        return (clue_bg_color, clue_rect), (question_text, question_text_rect)
+    
     def __str__(self) -> str:
         output = ""
         for clue in self.clues:
