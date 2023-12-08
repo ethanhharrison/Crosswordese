@@ -14,11 +14,11 @@ pygame.init()
 
 
 # create screen
-SCREEN_HEIGHT = 800
+SCREEN_HEIGHT = 750
 padding = round(0.05 * SCREEN_HEIGHT)
 tile_size = round((0.9 * SCREEN_HEIGHT) // board.rows)
 screen_width = tile_size * board.cols + 2 * padding
-display_surface = pygame.display.set_mode((screen_width, SCREEN_HEIGHT))
+display_surface = pygame.display.set_mode((screen_width, SCREEN_HEIGHT + 100))
 
 
 # select font
@@ -27,6 +27,7 @@ clue_font_size = entry_font_size // 2
 arialunicode = pygame.font.match_font("arialunicode")
 entry_font = pygame.font.Font(arialunicode, entry_font_size)
 clue_number_font = pygame.font.Font(arialunicode, clue_font_size)
+clue_question_font = pygame.font.Font(arialunicode, 18)
 
 
 while True:
@@ -68,13 +69,15 @@ while True:
                     board.move(orientation, -1)
                 elif pressed_key[pygame.K_RIGHT]:
                     board.move(orientation, 1)
+            # Go to next clue
+            elif pressed_key[pygame.K_RETURN]:
+                board.move_to_next_clue(orientation, 1)
             # Type character
             else:
                 if pressed_key[pygame.K_BACKSPACE]:
                     if board.selected_tile.current_entry:
                         board.selected_tile.remove()
-                    else:
-                        board.move(orientation, -1)
+                    board.move(orientation, -1)
                 for i in range(pygame.K_a, pygame.K_z + 1):
                     if pressed_key[i]:
                         char = pygame.key.name(i)
@@ -83,6 +86,7 @@ while True:
                         except BaseException as be:
                             print(be)
                         board.move(orientation, 1)
+                        break
 
 
     # Change background color
@@ -90,7 +94,7 @@ while True:
     display_surface.fill(bg_color)
 
     # Draw board
-    board_color, board_rect = board.display_board(SCREEN_HEIGHT, 4)
+    board_color, board_rect = board.display_board(padding, tile_size, 4)
     pygame.draw.rect(display_surface, board_color, board_rect)
 
     # Update highlighted tiles
@@ -112,10 +116,13 @@ while True:
     # Draw clue text
     for clue in clues:
         tile = board.get_tile(clue.num_down, clue.num_across)
-        text_display = tile.display_clue_number(
-            clue.number, padding, tile_size, clue_number_font
-        )
+        text_display = tile.display_clue_number(clue.number, padding, tile_size, clue_number_font)
         display_surface.blit(*text_display)
+        
+    # Show selected clue's question
+    clue_display, clue_text_display = board.display_question(orientation, padding, tile_size, clue_question_font)
+    pygame.draw.rect(display_surface, *clue_display)
+    display_surface.blit(*clue_text_display)
 
     # Update screen
     pygame.display.update()
