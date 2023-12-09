@@ -251,13 +251,13 @@ class GameBoard:
         return board_color, board_rect
 
     def display_tiles(
-        self, padding: int, tile_size: int, font: Font
+        self, padding: int, tile_size: int, font: Font, show_errors: bool
     ) -> Generator[tuple[list[tuple[Color, Rect]], list[tuple[Surface, Rect]]], None, None]:
         for i in range(len(self.tiles)):
             row: list[Tile] = self.tiles[i]
             for j in range(len(row)):
                 tile: Tile = row[j]
-                tile_display = tile.display_border(padding, tile_size, 1, True)
+                tile_display = tile.display_border(padding, tile_size, 1, show_errors)
                 text_display = tile.display_current_entry(padding, tile_size, font)
                 yield list(tile_display), list(text_display)
 

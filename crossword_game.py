@@ -8,11 +8,13 @@ pygame.init()
 
 
 # get board
-rows, cols, clues = parse_crossword_json("nyt_crosswords-master/2015/06/08.json")
+rows, cols, clues = parse_crossword_json("nyt_crosswords-master/2016/06/03.json")
 crossword = Crossword(rows, cols, clues)
 board = crossword.board
 orientation = "across"
 
+# show errors
+SHOW_ERRORS = True
 
 # create screen
 SCREEN_HEIGHT = 850
@@ -105,7 +107,7 @@ while True:
             tile.highlight(orientation)
 
     # Draw tiles
-    display = board.display_tiles(padding, tile_size, entry_font)
+    display = board.display_tiles(padding, tile_size, entry_font, SHOW_ERRORS)
     for border_display, text_display in display:
         # Draw borders
         for color, rect in border_display:
