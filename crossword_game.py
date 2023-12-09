@@ -120,9 +120,10 @@ while True:
         display_surface.blit(*text_display)
         
     # Show selected clue's question
-    clue_display, clue_text_display = board.display_question(orientation, padding, tile_size, clue_question_font)
-    pygame.draw.rect(display_surface, *clue_display)
-    display_surface.blit(*clue_text_display)
+    clue_box_display, clue_text_display = board.display_clue(orientation, padding, tile_size, clue_question_font)
+    pygame.draw.rect(display_surface, *clue_box_display)
+    for line in clue_text_display:
+        display_surface.blit(*line)
 
     # Update screen
     pygame.display.update()

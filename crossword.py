@@ -1,8 +1,10 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Generator, Optional
+from textwrap import TextWrapper
 import string
 import pygame
+
 
 
 class InvalidPuzzleError(BaseException):
@@ -139,6 +141,31 @@ class Clue:
             else:
                 raise InvalidPuzzleError("Puzzle has conflicting clues")
             
+    def display_question_text(self, x_pos: int, y_pos: int, width: int, height: int, font) -> list[tuple]:
+        clue_text = f"{self.number}{self.orientation[0].upper()}"
+        clue_text += f"     {self.question}"
+        
+        wrapper = TextWrapper(width=75, subsequent_indent="          ")
+        clue_text_lines = wrapper.wrap(clue_text)
+
+        line_height = font.get_height()
+        text_height = line_height * len(clue_text_lines)
+        y_offset = (height - text_height) // 2
+        # x_offset = (width)
+
+        clue_lines = []
+        for i, line in enumerate(clue_text_lines):
+            text = font.render(line, True, "black")
+            text_rect = text.get_rect()
+            text_rect.topleft = (x_pos + 25, y_pos + y_offset + i*line_height)
+            clue_lines.append((text, text_rect))
+        return clue_lines
+    
+    def display_question_box(self, x_pos: int, y_pos: int, width: int, height: int):
+        clue_bg_color = pygame.Color(221, 239, 255)
+        clue_rect = pygame.Rect(x_pos, y_pos, width, height)
+        return (clue_bg_color, clue_rect)
+            
     def __str__(self) -> str:
         output = f"{self.question}:\n"
         for tile in self.tiles:
@@ -214,26 +241,22 @@ class GameBoard:
                 text_display = tile.display_current_entry(padding, tile_size, font)
                 yield tile_display, text_display
                 
-    def display_question(self, orientation: str, padding: int, tile_size: int, font) -> tuple[tuple, tuple]:
-        clue_bg_color = pygame.Color(221, 239, 255)
+    def display_clue(self, orientation: str, padding: int, tile_size: int, font) -> tuple:
         x_pos = padding
         y_pos = padding + tile_size * self.rows + 10
-        clue_rect = pygame.Rect(x_pos, y_pos, tile_size * self.cols, 75)
+        width = tile_size * self.cols
         
-        current_tile = self.selected_tile
-        question = ""
-        if orientation == "down" and current_tile.down_clue:
-            question += f"{current_tile.down_clue.number}D"
-            question += f"     {current_tile.down_clue.question}"
-        elif orientation == "across" and current_tile.across_clue:
-            question += f"{current_tile.across_clue.number}A"
-            question += f"     {current_tile.across_clue.question}"
+        if orientation == "down" and self.selected_tile.down_clue: 
+            selected_clue = self.selected_tile.down_clue
+        elif orientation == "across" and self.selected_tile.across_clue:
+            selected_clue = self.selected_tile.across_clue
+        else:
+            raise ValueError("No clue associated with tile")
         
-        question_text = font.render(question, True, "black")
-        question_text_rect = question_text.get_rect()
-        question_text_rect.topleft = (x_pos + 25, y_pos + 25)
-        
-        return (clue_bg_color, clue_rect), (question_text, question_text_rect)
+        clue_box = selected_clue.display_question_box(x_pos, y_pos, width, 75)
+        clue_lines = selected_clue.display_question_text(x_pos, y_pos, width, 75, font)
+            
+        return clue_box, clue_lines
     
     def __str__(self) -> str:
         output = ""
