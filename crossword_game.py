@@ -1,16 +1,17 @@
-from crossword import create_board
+from crossword import Crossword
 from crossword_parser import parse_crossword_json
 import pygame
 
 
-# get board
-rows, cols, clues = parse_crossword_json("nyt_crosswords-master/2009/05/14.json")
-board = create_board(rows, cols, clues)
-orientation = "across"
-
-
 # initialize pygame
 pygame.init()
+
+
+# get board
+rows, cols, clues = parse_crossword_json("nyt_crosswords-master/2017/03/03.json")
+crossword = Crossword(rows, cols, clues)
+board = crossword.board
+orientation = "across"
 
 
 # create screen
@@ -18,16 +19,15 @@ SCREEN_HEIGHT = 750
 padding = round(0.05 * SCREEN_HEIGHT)
 tile_size = round((0.9 * SCREEN_HEIGHT) // board.rows)
 screen_width = tile_size * board.cols + 2 * padding
-display_surface = pygame.display.set_mode((screen_width, SCREEN_HEIGHT + 100))
+display_surface = pygame.display.set_mode((screen_width, SCREEN_HEIGHT + 75))
 
 
 # select font
-entry_font_size = SCREEN_HEIGHT // 25
-clue_font_size = entry_font_size // 2
+entry_font_size = int(tile_size / 1.5)
 arialunicode = pygame.font.match_font("arialunicode")
 entry_font = pygame.font.Font(arialunicode, entry_font_size)
-clue_number_font = pygame.font.Font(arialunicode, clue_font_size)
-clue_question_font = pygame.font.Font(arialunicode, 18)
+clue_number_font = pygame.font.Font(arialunicode, int(entry_font_size / 2))
+clue_question_font = pygame.font.Font(arialunicode, int(entry_font_size / 1.5))
 
 
 while True:
@@ -58,26 +58,26 @@ while True:
                 if orientation == "across":
                     orientation = "down"
                 elif pressed_key[pygame.K_UP]:
-                    board.move(orientation, -1)
+                    crossword.move(orientation, -1)
                 elif pressed_key[pygame.K_DOWN]:
-                    board.move(orientation, 1)
+                    crossword.move(orientation, 1)
             # Move left and right
             elif pressed_key[pygame.K_LEFT] or pressed_key[pygame.K_RIGHT]:
                 if orientation == "down":
                     orientation = "across"
                 elif pressed_key[pygame.K_LEFT]:
-                    board.move(orientation, -1)
+                    crossword.move(orientation, -1)
                 elif pressed_key[pygame.K_RIGHT]:
-                    board.move(orientation, 1)
+                    crossword.move(orientation, 1)
             # Go to next clue
             elif pressed_key[pygame.K_RETURN]:
-                board.move_to_next_clue(orientation, 1)
+                crossword.move_to_next_clue(orientation, 1)
             # Type character
             else:
                 if pressed_key[pygame.K_BACKSPACE]:
                     if board.selected_tile.current_entry:
                         board.selected_tile.remove()
-                    board.move(orientation, -1)
+                    crossword.move(orientation, -1)
                 for i in range(pygame.K_a, pygame.K_z + 1):
                     if pressed_key[i]:
                         char = pygame.key.name(i)
@@ -85,7 +85,7 @@ while True:
                             board.selected_tile.fill(char)
                         except BaseException as be:
                             print(be)
-                        board.move(orientation, 1)
+                        crossword.move(orientation, 1)
                         break
 
 
