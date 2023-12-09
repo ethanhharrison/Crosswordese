@@ -1,8 +1,10 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Generator, Optional
+from textwrap import TextWrapper
 import string
 import pygame
+
 
 
 class InvalidPuzzleError(BaseException):
@@ -39,6 +41,7 @@ class Tile:
             self.across_clue = clue
 
     def highlight(self, orientation: str) -> None:
+        """Checks if the the tile should be highlighted"""
         if orientation == "across" and self.across_clue:
             self.highlighted = any([tile.selected for tile in self.across_clue.tiles])
         elif orientation == "down" and self.down_clue:
@@ -137,7 +140,32 @@ class Clue:
                 tile.correct_entry = value
             else:
                 raise InvalidPuzzleError("Puzzle has conflicting clues")
+            
+    def display_question_text(self, x_pos: int, y_pos: int, width: int, height: int, font) -> list[tuple]:
+        clue_text = f"{self.number}{self.orientation[0].upper()}"
+        clue_text += f"     {self.question}"
+        
+        wrapper = TextWrapper(width=75, subsequent_indent="          ")
+        clue_text_lines = wrapper.wrap(clue_text)
 
+        line_height = font.get_height()
+        text_height = line_height * len(clue_text_lines)
+        y_offset = (height - text_height) // 2
+        # x_offset = (width)
+
+        clue_lines = []
+        for i, line in enumerate(clue_text_lines):
+            text = font.render(line, True, "black")
+            text_rect = text.get_rect()
+            text_rect.topleft = (x_pos + 25, y_pos + y_offset + i*line_height)
+            clue_lines.append((text, text_rect))
+        return clue_lines
+    
+    def display_question_box(self, x_pos: int, y_pos: int, width: int, height: int):
+        clue_bg_color = pygame.Color(221, 239, 255)
+        clue_rect = pygame.Rect(x_pos, y_pos, width, height)
+        return (clue_bg_color, clue_rect)
+            
     def __str__(self) -> str:
         output = f"{self.question}:\n"
         for tile in self.tiles:
@@ -148,35 +176,15 @@ class Clue:
 class GameBoard:
     """Class for creating the game board"""
 
-    def __init__(self, rows: int, cols: int, clues: list[Clue]) -> None:
+    def __init__(self, rows: int, cols: int) -> None:
         self.rows = rows
         self.cols = cols
-        self.clues = clues
         self.tiles = self.make_tile_grid(rows, cols)
         self.selected_tile = self.get_tile(0, 0)
 
     def make_tile_grid(self, rows: int, cols: int) -> list[list[Tile]]:
         """Make a tile grid for the board"""
         return [[Tile(False, i, j) for j in range(cols)] for i in range(rows)]
-
-    def assign_clues_to_tiles(self) -> None:
-        """Assigns clues to tiles in the grid then updates the tiles' solutionsxs"""
-        if self.clues is None:
-            return
-        for clue in self.clues:
-            sol_size = len(clue.solution)
-            if clue.orientation == "across":
-                tiles = [
-                    self.get_tile(clue.num_down, clue.num_across + i)
-                    for i in range(sol_size)
-                ]
-            else:
-                tiles = [
-                    self.get_tile(clue.num_down + i, clue.num_across)
-                    for i in range(sol_size)
-                ]
-            clue.connect_tiles(tiles)
-            clue.update_tile_solutions()
 
     def assign_blocked_tiles(self) -> None:
         """Make any tile with an empty correct solution a blocked tile"""
@@ -216,48 +224,6 @@ class GameBoard:
         self.selected_tile = new_tile
         self.selected_tile.selected = True
 
-    def move(self, orientation: str, direction: int) -> None:
-        num_down = self.selected_tile.num_down
-        num_across = self.selected_tile.num_across
-        still_moving = True
-        while still_moving:
-            if orientation == "across":
-                num_across += direction
-            else:
-                num_down += direction
-            if num_down < 0 or num_across < 0:
-                self.move_to_next_clue(orientation, -1)
-                still_moving = True
-            elif num_down >= self.rows or num_across >= self.cols:
-                self.move_to_next_clue(orientation, 1)
-                still_moving = True
-            if self.in_bounds(num_down, num_across):
-                try:
-                    self.change_selected_tile(num_down, num_across)
-                    still_moving = False
-                except BaseException:
-                    pass
-            else:
-                still_moving = False
-                
-    def move_to_next_clue(self, orientation, direction) -> None:
-        if orientation == "across":
-            current_clue = self.selected_tile.across_clue
-        else:
-            current_clue = self.selected_tile.down_clue
-        if current_clue:
-            next_clues = [clue for clue in self.clues if clue.orientation == orientation]
-            current_index = next_clues.index(current_clue)
-            next_clue = next_clues[(current_index + direction) % len(next_clues)]
-            self.change_selected_tile(next_clue.num_down, next_clue.num_across)
-
-    def update_tile_entry(self, value: str) -> None:
-        """Adds or removes value to the selected tile"""
-        if value == "delete":
-            self.selected_tile.remove()
-        else:
-            self.selected_tile.fill(value)
-
     def display_board(self, padding: int, tile_size: int, border_width: int) -> tuple:
         board_width = tile_size * self.cols + border_width
         board_height = tile_size * self.rows + border_width
@@ -275,26 +241,22 @@ class GameBoard:
                 text_display = tile.display_current_entry(padding, tile_size, font)
                 yield tile_display, text_display
                 
-    def display_question(self, orientation: str, padding: int, tile_size: int, font) -> tuple[tuple, tuple]:
-        clue_bg_color = pygame.Color(221, 239, 255)
+    def display_clue(self, orientation: str, padding: int, tile_size: int, font) -> tuple:
         x_pos = padding
         y_pos = padding + tile_size * self.rows + 10
-        clue_rect = pygame.Rect(x_pos, y_pos, tile_size * self.cols, 75)
+        width = tile_size * self.cols
         
-        current_tile = self.selected_tile
-        question = ""
-        if orientation == "down" and current_tile.down_clue:
-            question += f"{current_tile.down_clue.number}D"
-            question += f"     {current_tile.down_clue.question}"
-        elif orientation == "across" and current_tile.across_clue:
-            question += f"{current_tile.across_clue.number}A"
-            question += f"     {current_tile.across_clue.question}"
+        if orientation == "down" and self.selected_tile.down_clue: 
+            selected_clue = self.selected_tile.down_clue
+        elif orientation == "across" and self.selected_tile.across_clue:
+            selected_clue = self.selected_tile.across_clue
+        else:
+            raise ValueError("No clue associated with tile")
         
-        question_text = font.render(question, True, "black")
-        question_text_rect = question_text.get_rect()
-        question_text_rect.topleft = (x_pos + 25, y_pos + 25)
-        
-        return (clue_bg_color, clue_rect), (question_text, question_text_rect)
+        clue_box = selected_clue.display_question_box(x_pos, y_pos, width, 75)
+        clue_lines = selected_clue.display_question_text(x_pos, y_pos, width, 75, font)
+            
+        return clue_box, clue_lines
     
     def __str__(self) -> str:
         output = ""
@@ -305,9 +267,63 @@ class GameBoard:
         return output
 
 
-def create_board(rows: int, cols: int, clues: list[Clue]) -> GameBoard:
-    board = GameBoard(rows, cols, clues)
-    board.assign_clues_to_tiles()
-    board.assign_blocked_tiles()
-    board.selected_tile.selected = True
-    return board
+class Crossword:
+    """Class for representing the crossword puzzle"""
+    
+    def __init__(self, rows: int, cols: int, clues: list[Clue]) -> None:
+        self.board = GameBoard(rows, cols)
+        self.clues = clues
+        self.assign_clues_to_tiles()
+        self.board.selected_tile.selected = True
+        
+    def assign_clues_to_tiles(self) -> None:
+        """Assigns clues to tiles in the grid then updates the tiles' solutionsxs"""
+        if self.clues is None:
+            return
+        for clue in self.clues:
+            sol_size = len(clue.solution)
+            tiles = []
+            for i in range(sol_size):
+                if clue.orientation == "across":
+                    tiles.append(self.board.get_tile(clue.num_down, clue.num_across + i))
+                else:
+                    tiles.append(self.board.get_tile(clue.num_down + i, clue.num_across))
+            clue.connect_tiles(tiles)
+            clue.update_tile_solutions()
+        self.board.assign_blocked_tiles()
+    
+    def move(self, orientation: str, direction: int) -> None:
+        num_down = self.board.selected_tile.num_down
+        num_across = self.board.selected_tile.num_across
+        still_moving = True
+        while still_moving:
+            if orientation == "across":
+                num_across += direction
+            else:
+                num_down += direction
+            if num_down < 0 or num_across < 0:
+                self.move_to_next_clue(orientation, -1)
+                still_moving = True
+            elif num_down >= self.board.rows or num_across >= self.board.cols:
+                self.move_to_next_clue(orientation, 1)
+                still_moving = True
+            if self.board.in_bounds(num_down, num_across):
+                try:
+                    self.board.change_selected_tile(num_down, num_across)
+                    still_moving = False
+                except BaseException:
+                    pass
+            else:
+                still_moving = False
+            
+    def move_to_next_clue(self, orientation, direction) -> None:
+        if orientation == "across":
+            current_clue = self.board.selected_tile.across_clue
+        else:
+            current_clue = self.board.selected_tile.down_clue
+        if current_clue:
+            clues_list = [clue for clue in self.clues if clue.orientation == orientation]
+            current_index = clues_list.index(current_clue)
+            next_index = (current_index + direction) % len(clues_list)
+            next_clue = clues_list[next_index]
+            self.board.change_selected_tile(next_clue.num_down, next_clue.num_across)

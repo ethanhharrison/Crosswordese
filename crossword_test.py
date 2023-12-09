@@ -1,12 +1,11 @@
 from crossword_parser import parse_crossword_json
-from crossword import BlockedTileError, GameBoard
+from crossword import BlockedTileError, Crossword
 
 
 def main() -> None:
     rows, cols, clues = parse_crossword_json('nyt_crosswords-master/2017/05/15.json')
-    board = GameBoard(rows, cols, clues)
-    board.assign_clues_to_tiles()
-    board.assign_blocked_tiles()
+    crossword = Crossword(rows, cols, clues)
+    board = crossword.board
     print(board)
     while not board.is_complete():
         try:
@@ -16,7 +15,10 @@ def main() -> None:
             board.change_selected_tile(*position)
             # Ask for a value    
             value = input("Choose the value of the tile: ")
-            board.update_tile_entry(value)
+            if value == "delete":
+                board.selected_tile.remove()
+            else:
+                board.selected_tile.fill(value)
         except ValueError as verr:
             print(verr)
         except BlockedTileError as bterr:
