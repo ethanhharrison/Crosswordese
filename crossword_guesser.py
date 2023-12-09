@@ -29,11 +29,11 @@ class Solver:
     def answer_clue(self, clue) -> str:
         return ""
         
-    # record the accuracy of the model as (total correct / total tiles)
-    def accuracy(self):
-        if not self.has_solved:
+    def accuracy(self) -> float:
+        if self.has_solved:
+            return self.puzzle.board.accuracy()
+        else:
             return -1
-        pass
 
     #  list all the errors in the puzzle
     def report_errors(self):

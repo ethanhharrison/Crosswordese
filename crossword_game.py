@@ -8,26 +8,28 @@ pygame.init()
 
 
 # get board
-rows, cols, clues = parse_crossword_json("nyt_crosswords-master/2017/03/03.json")
+rows, cols, clues = parse_crossword_json("nyt_crosswords-master/2015/06/08.json")
 crossword = Crossword(rows, cols, clues)
 board = crossword.board
 orientation = "across"
 
 
 # create screen
-SCREEN_HEIGHT = 750
-padding = round(0.05 * SCREEN_HEIGHT)
-tile_size = round((0.9 * SCREEN_HEIGHT) // board.rows)
+SCREEN_HEIGHT = 850
+padding = round(0.05 * (SCREEN_HEIGHT - 100))
+tile_size = round((0.9 * (SCREEN_HEIGHT - 100)) // board.rows)
 screen_width = tile_size * board.cols + 2 * padding
-display_surface = pygame.display.set_mode((screen_width, SCREEN_HEIGHT + 75))
+display_surface = pygame.display.set_mode((screen_width, SCREEN_HEIGHT))
 
 
 # select font
 entry_font_size = int(tile_size / 1.5)
 arialunicode = pygame.font.match_font("arialunicode")
 entry_font = pygame.font.Font(arialunicode, entry_font_size)
-clue_number_font = pygame.font.Font(arialunicode, int(entry_font_size / 2))
+clue_number_font = pygame.font.Font(arialunicode, entry_font_size // 2)
 clue_question_font = pygame.font.Font(arialunicode, int(entry_font_size / 1.5))
+time_font = pygame.font.Font(arialunicode, int(entry_font_size / 1.25))
+victory_font = pygame.font.Font(arialunicode, entry_font_size * 3)
 
 
 while True:
@@ -51,7 +53,7 @@ while True:
             except BaseException as be:
                 print(be)
         # Key press
-        elif event.type == pygame.KEYDOWN:
+        elif event.type == pygame.KEYDOWN and not board.is_complete():
             pressed_key = pygame.key.get_pressed()
             # Move up and down
             if pressed_key[pygame.K_UP] or pressed_key[pygame.K_DOWN]:
@@ -124,6 +126,22 @@ while True:
     pygame.draw.rect(display_surface, *clue_box_display)
     for line in clue_text_display:
         display_surface.blit(*line)
+        
+    # Show puzzle time
+    if not board.is_complete():
+        current_time = pygame.time.get_ticks() // 1000
+        minutes, seconds = current_time // 60, current_time % 60
+    text = time_font.render(f"Time: {minutes}:{seconds:02d}", True, "black") # type: ignore
+    text_rect = text.get_rect()
+    text_rect.center = (screen_width // 2, SCREEN_HEIGHT - 25)
+    display_surface.blit(text, text_rect)
+    
+    # Show completion text
+    if board.is_complete():
+        text = victory_font.render("Complete!", True, "white")
+        text_rect = text.get_rect()
+        text_rect.center = (screen_width // 2, (SCREEN_HEIGHT - 100) // 2)
+        display_surface.blit(text, text_rect)
 
     # Update screen
     pygame.display.update()

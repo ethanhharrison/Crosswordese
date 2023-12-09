@@ -1,9 +1,11 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Generator, Optional
-from pygame import Color, Rect, Surface, font
 from textwrap import TextWrapper
-import string
+from string import ascii_letters
+from pygame import Color, Rect, Surface
+from pygame.font import Font
+
 
 
 class InvalidPuzzleError(BaseException):
@@ -58,7 +60,7 @@ class Tile:
             raise BlockedTileError("Cannot fill blocked tile")
         elif len(value) > 1:
             raise ValueError("Value is too long")
-        elif value not in string.ascii_letters:
+        elif value not in ascii_letters:
             raise ValueError("Invalid character")
         else:
             self.current_entry = value.upper()
@@ -68,7 +70,7 @@ class Tile:
         self.current_entry = ""
 
     def display_border(
-        self, padding: int, size: int, border_width: int
+        self, padding: int, size: int, border_width: int, show_error: bool
     ) -> Generator[tuple[Color, Rect], None, None]:
         x_pos: int = padding + size * self.num_across
         y_pos: int = padding + size * self.num_down
@@ -82,16 +84,21 @@ class Tile:
         if self.blocked:
             yield Color("black"), outer_rect
         else:
-            yield Color(161, 161, 161), outer_rect
+            yield Color(161, 161, 161), outer_rect # gray border
         if self.selected:
-            yield Color(255, 217, 2), inner_rect
+            yield Color(255, 217, 2), inner_rect   # yellow box
+        elif self.current_entry:
+            if self.current_entry == self.correct_entry:
+                yield Color("green"), inner_rect   # green box
+            else:
+                yield Color("red"), inner_rect     # red box
         elif self.highlighted:
-            yield Color(167, 216, 254), inner_rect
+            yield Color(167, 216, 254), inner_rect # blue box
         elif not self.blocked:
-            yield Color(255, 255, 255), inner_rect
+            yield Color(255, 255, 255), inner_rect # white box
 
     def display_current_entry(
-        self, padding: int, size: int, font: font.Font
+        self, padding: int, size: int, font: Font
     ) -> Generator[tuple[Surface, Rect], None, None]:
         x_pos: int = padding + size * self.num_across
         y_pos: int = padding + size * self.num_down
@@ -102,7 +109,7 @@ class Tile:
             yield text, text_rect
 
     def display_clue_number(
-        self, number: int, padding: int, size: int, font: font.Font
+        self, number: int, padding: int, size: int, font: Font
     ) -> tuple[Surface, Rect]:
         x_pos: int = padding + size * self.num_across
         y_pos: int = padding + size * self.num_down
@@ -144,7 +151,7 @@ class Clue:
                 raise InvalidPuzzleError("Puzzle has conflicting clues")
 
     def display_question_text(
-        self, x_pos: int, y_pos: int, width: int, height: int, font: font.Font
+        self, x_pos: int, y_pos: int, width: int, height: int, font: Font
     ) -> list[tuple[Surface, Rect]]:
         clue_text: str = f"{self.number}{self.orientation[0].upper()}"
         clue_text += f"     {self.question}"
@@ -197,6 +204,17 @@ class GameBoard:
             if any([not tile.is_correct() for tile in row]):
                 return False
         return True
+    
+    # record the accuracy of the board (total correct / total tiles)
+    def accuracy(self) -> float:
+        total_correct = 0
+        total_tiles = 0
+        for row in self.tiles:
+            for tile in row:
+                if tile.current_entry == tile.correct_entry:
+                    total_correct += 1
+                total_tiles += 1
+        return total_correct / total_tiles
 
     def in_bounds(self, num_down: int, num_across: int) -> bool:
         if num_down < 0 or num_across < 0:
@@ -233,18 +251,18 @@ class GameBoard:
         return board_color, board_rect
 
     def display_tiles(
-        self, padding: int, tile_size: int, font
+        self, padding: int, tile_size: int, font: Font
     ) -> Generator[tuple[list[tuple[Color, Rect]], list[tuple[Surface, Rect]]], None, None]:
         for i in range(len(self.tiles)):
             row: list[Tile] = self.tiles[i]
             for j in range(len(row)):
                 tile: Tile = row[j]
-                tile_display = tile.display_border(padding, tile_size, 1)
+                tile_display = tile.display_border(padding, tile_size, 1, True)
                 text_display = tile.display_current_entry(padding, tile_size, font)
                 yield list(tile_display), list(text_display)
 
     def display_clue(
-        self, orientation: str, padding: int, tile_size: int, font
+        self, orientation: str, padding: int, tile_size: int, font: Font
     ) -> tuple[tuple[Color, Rect], list[tuple[Surface, Rect]]]:
         x_pos: int = padding
         y_pos: int = padding + tile_size * self.rows + 10
@@ -317,25 +335,24 @@ class Crossword:
             elif num_down >= self.board.rows or num_across >= self.board.cols:
                 self.move_to_next_clue(orientation, 1)
                 still_moving = True
-            if self.board.in_bounds(num_down, num_across):
+            if not self.board.in_bounds(num_down, num_across):
+                still_moving = False
+            else:
                 try:
                     self.board.change_selected_tile(num_down, num_across)
                     still_moving = False
                 except BaseException:
                     pass
-            else:
-                still_moving = False
 
     def move_to_next_clue(self, orientation: str, direction: int) -> None:
         if orientation == "across":
             current_clue = self.board.selected_tile.across_clue
         else:
             current_clue = self.board.selected_tile.down_clue
-        if current_clue:
-            clues_list: list[Clue] = [
-                clue for clue in self.clues if clue.orientation == orientation
-            ]
-            current_index: int = clues_list.index(current_clue)
-            next_index: int = (current_index + direction) % len(clues_list)
-            next_clue: Clue = clues_list[next_index]
-            self.board.change_selected_tile(next_clue.num_down, next_clue.num_across)
+        if not current_clue:
+            return
+        clues_list: list[Clue] = [clue for clue in self.clues if clue.orientation == orientation]
+        current_index: int = clues_list.index(current_clue)
+        next_index: int = (current_index + direction) % len(clues_list)
+        next_clue: Clue = clues_list[next_index]
+        self.board.change_selected_tile(next_clue.num_down, next_clue.num_across)
