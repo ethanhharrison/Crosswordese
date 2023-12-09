@@ -1,10 +1,9 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Generator, Optional
+from pygame import Color, Rect, Surface, font
 from textwrap import TextWrapper
 import string
-import pygame
-
 
 
 class InvalidPuzzleError(BaseException):
@@ -68,41 +67,47 @@ class Tile:
         """Removes the tile's current entry"""
         self.current_entry = ""
 
-    def display_border(self, padding: int, size: int, border_width: int) -> Generator:
-        x_pos = padding + size * self.num_across
-        y_pos = padding + size * self.num_down
-        outer_rect = pygame.Rect(x_pos, y_pos, size, size)
-        inner_rect = pygame.Rect(
+    def display_border(
+        self, padding: int, size: int, border_width: int
+    ) -> Generator[tuple[Color, Rect], None, None]:
+        x_pos: int = padding + size * self.num_across
+        y_pos: int = padding + size * self.num_down
+        outer_rect: Rect = Rect(x_pos, y_pos, size, size)
+        inner_rect: Rect = Rect(
             x_pos + border_width,
             y_pos + border_width,
             size - border_width * 2,
             size - border_width * 2,
         )
         if self.blocked:
-            yield pygame.Color("black"), outer_rect
+            yield Color("black"), outer_rect
         else:
-            yield pygame.Color(161, 161, 161), outer_rect
+            yield Color(161, 161, 161), outer_rect
         if self.selected:
-            yield pygame.Color(255, 217, 2), inner_rect
+            yield Color(255, 217, 2), inner_rect
         elif self.highlighted:
-            yield pygame.Color(167, 216, 254), inner_rect
+            yield Color(167, 216, 254), inner_rect
         elif not self.blocked:
-            yield pygame.Color(255, 255, 255), inner_rect
+            yield Color(255, 255, 255), inner_rect
 
-    def display_current_entry(self, padding: int, size: int, font) -> Generator:
-        x_pos = padding + size * self.num_across
-        y_pos = padding + size * self.num_down
+    def display_current_entry(
+        self, padding: int, size: int, font: font.Font
+    ) -> Generator[tuple[Surface, Rect], None, None]:
+        x_pos: int = padding + size * self.num_across
+        y_pos: int = padding + size * self.num_down
         if self.current_entry:
-            text = font.render(self.current_entry, True, "black")
-            text_rect = text.get_rect()
+            text: Surface = font.render(self.current_entry, True, "black")
+            text_rect: Rect = text.get_rect()
             text_rect.center = (x_pos + size // 2 - 1, y_pos + size // 2 + 5)
             yield text, text_rect
 
-    def display_clue_number(self, number: int, padding: int, size: int, font) -> tuple:
-        x_pos = padding + size * self.num_across
-        y_pos = padding + size * self.num_down
-        text = font.render(str(number), True, "black")
-        text_rect = text.get_rect()
+    def display_clue_number(
+        self, number: int, padding: int, size: int, font: font.Font
+    ) -> tuple[Surface, Rect]:
+        x_pos: int = padding + size * self.num_across
+        y_pos: int = padding + size * self.num_down
+        text: Surface = font.render(str(number), True, "black")
+        text_rect: Rect = text.get_rect()
         text_rect.topleft = (x_pos + 4, y_pos - 1)
         return text, text_rect
 
@@ -127,10 +132,7 @@ class Clue:
     num_across: int
     tiles: list[Tile] = field(default_factory=list)
 
-    def connect_tiles(self, tiles: list[Tile]) -> None:
-        self.tiles = tiles
-
-    def update_tile_solutions(self) -> None:
+    def update_tiles(self) -> None:
         """Updates the solution for each tile of that clue"""
         if self.tiles == []:
             raise ValueError("No tiles connected to clue")
@@ -140,34 +142,37 @@ class Clue:
                 tile.correct_entry = value
             else:
                 raise InvalidPuzzleError("Puzzle has conflicting clues")
-            
-    def display_question_text(self, x_pos: int, y_pos: int, width: int, height: int, font) -> list[tuple]:
-        clue_text = f"{self.number}{self.orientation[0].upper()}"
+
+    def display_question_text(
+        self, x_pos: int, y_pos: int, width: int, height: int, font: font.Font
+    ) -> list[tuple[Surface, Rect]]:
+        clue_text: str = f"{self.number}{self.orientation[0].upper()}"
         clue_text += f"     {self.question}"
-        
-        wrapper = TextWrapper(width=75, subsequent_indent="          ")
-        clue_text_lines = wrapper.wrap(clue_text)
 
-        line_height = font.get_height()
-        text_height = line_height * len(clue_text_lines)
-        y_offset = (height - text_height) // 2
-        # x_offset = (width)
+        wrapper: TextWrapper = TextWrapper(width=75, subsequent_indent="          ")
+        clue_text_lines: list[str] = wrapper.wrap(clue_text)
 
-        clue_lines = []
+        line_height: int = font.get_height()
+        text_height: int = line_height * len(clue_text_lines)
+        y_offset: int = (height - text_height) // 2
+
+        clue_lines: list[tuple[Surface, Rect]] = []
         for i, line in enumerate(clue_text_lines):
-            text = font.render(line, True, "black")
-            text_rect = text.get_rect()
-            text_rect.topleft = (x_pos + 25, y_pos + y_offset + i*line_height)
+            text: Surface = font.render(line, True, "black")
+            text_rect: Rect = text.get_rect()
+            text_rect.topleft = (x_pos + 25, y_pos + y_offset + i * line_height)
             clue_lines.append((text, text_rect))
         return clue_lines
-    
-    def display_question_box(self, x_pos: int, y_pos: int, width: int, height: int):
-        clue_bg_color = pygame.Color(221, 239, 255)
-        clue_rect = pygame.Rect(x_pos, y_pos, width, height)
-        return (clue_bg_color, clue_rect)
-            
+
+    def display_question_box(
+        self, x_pos: int, y_pos: int, width: int, height: int
+    ) -> tuple[Color, Rect]:
+        clue_bg_color: Color = Color(221, 239, 255)
+        clue_rect: Rect = Rect(x_pos, y_pos, width, height)
+        return clue_bg_color, clue_rect
+
     def __str__(self) -> str:
-        output = f"{self.question}:\n"
+        output: str = f"{self.question}:\n"
         for tile in self.tiles:
             output += f"[{tile.num_down}, {tile.num_across}] "
         return output
@@ -186,13 +191,6 @@ class GameBoard:
         """Make a tile grid for the board"""
         return [[Tile(False, i, j) for j in range(cols)] for i in range(rows)]
 
-    def assign_blocked_tiles(self) -> None:
-        """Make any tile with an empty correct solution a blocked tile"""
-        for row in self.tiles:
-            for tile in row:
-                if tile.correct_entry == "":
-                    tile.blocked = True
-
     def is_complete(self) -> bool:
         """Check if board is complete"""
         for row in self.tiles:
@@ -200,7 +198,7 @@ class GameBoard:
                 return False
         return True
 
-    def in_bounds(self, num_down, num_across) -> bool:
+    def in_bounds(self, num_down: int, num_across: int) -> bool:
         if num_down < 0 or num_across < 0:
             return False
         elif num_down >= self.rows or num_across >= self.cols:
@@ -219,47 +217,55 @@ class GameBoard:
 
     def change_selected_tile(self, num_down: int, num_across: int) -> None:
         """Change the selected tile"""
-        new_tile = self.get_tile(num_down, num_across)
+        new_tile: Tile = self.get_tile(num_down, num_across)
         self.selected_tile.selected = False
         self.selected_tile = new_tile
         self.selected_tile.selected = True
 
-    def display_board(self, padding: int, tile_size: int, border_width: int) -> tuple:
+    def display_board(
+        self, padding: int, tile_size: int, border_width: int
+    ) -> tuple[Color, Rect]:
         board_width = tile_size * self.cols + border_width
         board_height = tile_size * self.rows + border_width
         offset = padding - border_width // 2
-        board_rect = pygame.Rect(offset, offset, board_width, board_height)
-        board_color = pygame.Color("black")
+        board_rect: Rect = Rect(offset, offset, board_width, board_height)
+        board_color: Color = Color("black")
         return board_color, board_rect
 
-    def display_tiles(self, padding: int, tile_size: int, font) -> Generator:
+    def display_tiles(
+        self, padding: int, tile_size: int, font
+    ) -> Generator[tuple[list[tuple[Color, Rect]], list[tuple[Surface, Rect]]], None, None]:
         for i in range(len(self.tiles)):
-            row = self.tiles[i]
+            row: list[Tile] = self.tiles[i]
             for j in range(len(row)):
-                tile = row[j]
+                tile: Tile = row[j]
                 tile_display = tile.display_border(padding, tile_size, 1)
                 text_display = tile.display_current_entry(padding, tile_size, font)
-                yield tile_display, text_display
-                
-    def display_clue(self, orientation: str, padding: int, tile_size: int, font) -> tuple:
-        x_pos = padding
-        y_pos = padding + tile_size * self.rows + 10
-        width = tile_size * self.cols
-        
-        if orientation == "down" and self.selected_tile.down_clue: 
-            selected_clue = self.selected_tile.down_clue
+                yield list(tile_display), list(text_display)
+
+    def display_clue(
+        self, orientation: str, padding: int, tile_size: int, font
+    ) -> tuple[tuple[Color, Rect], list[tuple[Surface, Rect]]]:
+        x_pos: int = padding
+        y_pos: int = padding + tile_size * self.rows + 10
+        width: int = tile_size * self.cols
+
+        if orientation == "down" and self.selected_tile.down_clue:
+            selected_clue: Clue = self.selected_tile.down_clue
         elif orientation == "across" and self.selected_tile.across_clue:
-            selected_clue = self.selected_tile.across_clue
+            selected_clue: Clue = self.selected_tile.across_clue
         else:
             raise ValueError("No clue associated with tile")
-        
-        clue_box = selected_clue.display_question_box(x_pos, y_pos, width, 75)
-        clue_lines = selected_clue.display_question_text(x_pos, y_pos, width, 75, font)
-            
+
+        clue_box: tuple[Color, Rect] = selected_clue.display_question_box(
+            x_pos, y_pos, width, 75)
+        clue_lines: list[tuple[Surface, Rect]] = selected_clue.display_question_text(
+            x_pos, y_pos, width, 75, font)
+
         return clue_box, clue_lines
-    
+
     def __str__(self) -> str:
-        output = ""
+        output: str = ""
         for row in self.tiles:
             for tile in row:
                 output += str(tile)
@@ -269,33 +275,37 @@ class GameBoard:
 
 class Crossword:
     """Class for representing the crossword puzzle"""
-    
+
     def __init__(self, rows: int, cols: int, clues: list[Clue]) -> None:
         self.board = GameBoard(rows, cols)
         self.clues = clues
         self.assign_clues_to_tiles()
+        self.assign_blocked_tiles()
         self.board.selected_tile.selected = True
-        
+
+    def assign_blocked_tiles(self) -> None:
+        """Make any tile with an empty correct solution a blocked tile"""
+        for row in self.board.tiles:
+            for tile in row:
+                if tile.correct_entry == "":
+                    tile.blocked = True
+
     def assign_clues_to_tiles(self) -> None:
         """Assigns clues to tiles in the grid then updates the tiles' solutionsxs"""
-        if self.clues is None:
-            return
         for clue in self.clues:
-            sol_size = len(clue.solution)
-            tiles = []
+            sol_size: int = len(clue.solution)
             for i in range(sol_size):
                 if clue.orientation == "across":
-                    tiles.append(self.board.get_tile(clue.num_down, clue.num_across + i))
+                    tile: Tile = self.board.get_tile(clue.num_down, clue.num_across + i)
                 else:
-                    tiles.append(self.board.get_tile(clue.num_down + i, clue.num_across))
-            clue.connect_tiles(tiles)
-            clue.update_tile_solutions()
-        self.board.assign_blocked_tiles()
-    
+                    tile: Tile = self.board.get_tile(clue.num_down + i, clue.num_across)
+                clue.tiles.append(tile)
+            clue.update_tiles()
+
     def move(self, orientation: str, direction: int) -> None:
-        num_down = self.board.selected_tile.num_down
-        num_across = self.board.selected_tile.num_across
-        still_moving = True
+        num_down: int = self.board.selected_tile.num_down
+        num_across: int = self.board.selected_tile.num_across
+        still_moving: bool = True
         while still_moving:
             if orientation == "across":
                 num_across += direction
@@ -315,15 +325,17 @@ class Crossword:
                     pass
             else:
                 still_moving = False
-            
-    def move_to_next_clue(self, orientation, direction) -> None:
+
+    def move_to_next_clue(self, orientation: str, direction: int) -> None:
         if orientation == "across":
             current_clue = self.board.selected_tile.across_clue
         else:
             current_clue = self.board.selected_tile.down_clue
         if current_clue:
-            clues_list = [clue for clue in self.clues if clue.orientation == orientation]
-            current_index = clues_list.index(current_clue)
-            next_index = (current_index + direction) % len(clues_list)
-            next_clue = clues_list[next_index]
+            clues_list: list[Clue] = [
+                clue for clue in self.clues if clue.orientation == orientation
+            ]
+            current_index: int = clues_list.index(current_clue)
+            next_index: int = (current_index + direction) % len(clues_list)
+            next_clue: Clue = clues_list[next_index]
             self.board.change_selected_tile(next_clue.num_down, next_clue.num_across)
