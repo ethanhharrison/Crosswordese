@@ -1,15 +1,12 @@
+import config # api key
+
 from crossword_parser import get_all_QA_pairs
 from tiktoken import encoding_for_model
-import config
+import os
 import openai
 import json
-import pandas as pd
 
 GPT_MODEL = "gpt-3.5-turbo"
-
-# To get the client to run, add an OPENAI_API_KEY variable to your environment.
-# I am doing so with a config.py file which sets os.environ["OPENAI_API_KEY"] to my key
-client = openai.OpenAI()
 
 # Recursively split QA dataset to smaller sections so GPT can read it
 # see: https://cookbook.openai.com/examples/embedding_wikipedia_articles_for_search
@@ -106,6 +103,9 @@ with open(filename, "w") as f:
         json_string = json.dumps(job)
         f.write(json_string + "\n")
 print(f"QA pairs saved to {filename}.")
+
+# run parallel processing
+os.system("sh parallel_process.sh")
 
 # df = pd.DataFrame({"text": QA_strings, "embedding": embeddings})
 

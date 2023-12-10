@@ -1,3 +1,5 @@
+import config # added to make sure api key is saved as environment variable
+
 """
 API REQUEST PARALLEL PROCESSOR
 
