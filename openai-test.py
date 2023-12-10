@@ -1,16 +1,15 @@
-from lzma import MODE_NORMAL
-from openai import OpenAI
 from crossword_parser import get_all_QA_pairs
 from tiktoken import encoding_for_model
 import config
+import openai
+import json
+import pandas as pd
 
 GPT_MODEL = "gpt-3.5-turbo"
-QA_PAIR_FOLDER = "nyt_crosswords-master"
 
 # To get the client to run, add an OPENAI_API_KEY variable to your environment.
-# I am doing so with a config.py file which sets os.environ["OPENAI_API_KEY"]
-# to my key
-client = OpenAI()
+# I am doing so with a config.py file which sets os.environ["OPENAI_API_KEY"] to my key
+client = openai.OpenAI()
 
 # Recursively split QA dataset to smaller sections so GPT can read it
 # see: https://cookbook.openai.com/examples/embedding_wikipedia_articles_for_search
@@ -71,11 +70,12 @@ def split_string(
                 max_recursion=max_recursion-1
             )
             results.extend(half_strings)
-        print(f"{len(string)} string split into {len(results)} strings.")
+        if len(results) > 2000:
+            print(f"{len(string)} string split into {len(results)} strings.")
         return results
 
 # collect data
-print("collecting data...")
+QA_PAIR_FOLDER = "nyt_crosswords-master"
 QA_list = get_all_QA_pairs(QA_PAIR_FOLDER)
 QA_text = ""
 for clue in QA_list:
@@ -83,10 +83,35 @@ for clue in QA_list:
 print(f"{len(QA_list)} QA pairs collected")
     
 # split sections into chunks
-print("splitting data...")
 MAX_TOKENS = 1600
 QA_strings = split_string(QA_text, max_tokens=MAX_TOKENS)
 print(f"{len(QA_list)} QA pairs split into {len(QA_strings)} strings.")
+
+# embedding chunks in batches through the parallel processor
+EMBEDDING_MODEL = "text-embedding-ada-002"
+BATCH_SIZE = 10
+QA_batches = []
+for batch_start in range(0, len(QA_strings), BATCH_SIZE):
+    batch_end = batch_start + BATCH_SIZE
+    batch = QA_strings[batch_start:batch_end]
+    QA_batches.append(batch)
+    print(f"Batch {batch_start} to {batch_end-1}")
+    
+# save strings to jsonl file for parallel processing
+# see: https://github.com/openai/openai-cookbook/blob/main/examples/api_request_parallel_processor.py
+filename = "data/nyt_qa_requests_to_parallel_process.jsonl"
+jobs = [{"model": EMBEDDING_MODEL, "input": QA_batch} for QA_batch in QA_batches]
+with open(filename, "w") as f:
+    for job in jobs:
+        json_string = json.dumps(job)
+        f.write(json_string + "\n")
+print(f"QA pairs saved to {filename}.")
+
+# df = pd.DataFrame({"text": QA_strings, "embedding": embeddings})
+
+# SAVE_PATH = "data/nyt_crossword_QA.csv"
+
+# df.to_csv(SAVE_PATH, index=False)
 
 # completion = client.chat.completions.create(
 #     model="gpt-3.5-turbo",
