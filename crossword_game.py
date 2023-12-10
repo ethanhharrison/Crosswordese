@@ -53,7 +53,7 @@ while True:
                 else:
                     board.change_selected_tile(num_down, num_across)
             except BaseException as be:
-                print(be)
+                pass
         # Key press
         elif event.type == pygame.KEYDOWN and not board.is_complete():
             pressed_key = pygame.key.get_pressed()
@@ -129,11 +129,13 @@ while True:
     for line in clue_text_display:
         display_surface.blit(*line)
         
-    # Show puzzle time
+    # Show puzzle info
     if not board.is_complete():
         current_time = pygame.time.get_ticks() // 1000
         minutes, seconds = current_time // 60, current_time % 60
-    text = time_font.render(f"Time: {minutes}:{seconds:02d}", True, "black") # type: ignore
+    puzzle_info = f"Time: {minutes}:{seconds:02d}" # type: ignore
+    puzzle_info += f"   Accuracy: {board.accuracy():.0%}"
+    text = time_font.render(puzzle_info, True, "black") 
     text_rect = text.get_rect()
     text_rect.center = (screen_width // 2, SCREEN_HEIGHT - 25)
     display_surface.blit(text, text_rect)

@@ -1,19 +1,18 @@
-from dataclasses import dataclass, field
 from crossword import Crossword, Clue
+from copy import copy
 
 class BadModelError(BaseException):
     pass
 
-@dataclass
 class Solver:
     """Class to represent the puzzle solver"""
-    
-    puzzle: Crossword
-    has_solved: bool = False
-    guesses: list[str] = field(default_factory=list)
+    def __init__(self, puzzle: Crossword, has_solved: bool=False, guesses: list[str]=[]) -> None:
+        self.puzzle = copy(puzzle)
+        self.has_solved = has_solved
+        self.guesses = guesses
         
     # given a crossword, solve for each tile in the puzzle
-    def solve(self):
+    def solve(self) -> None:
         solutions: dict[Clue, str] = {}
         for clue in self.puzzle.clues:
             sol: str = self.answer_clue(clue)
@@ -26,7 +25,7 @@ class Solver:
         self.has_solved = True
     
     # given a clue, answer it!
-    def answer_clue(self, clue) -> str:
+    def answer_clue(self, clue: Clue) -> str:
         return ""
         
     def accuracy(self) -> float:
@@ -34,10 +33,3 @@ class Solver:
             return self.puzzle.board.accuracy()
         else:
             return -1
-
-    #  list all the errors in the puzzle
-    def report_errors(self):
-        if not self.has_solved:
-            return []
-        pass
-    

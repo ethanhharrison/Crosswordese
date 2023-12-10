@@ -34,21 +34,23 @@ class Tile:
     down_clue: Optional[Clue] = None
     across_clue: Optional[Clue] = None
 
-    def assign_clue(self, clue: Clue, orientation: str) -> None:
+    def assign_clue(self, clue: Clue) -> None:
         """Attach tile to an associated clue"""
-        if orientation == "down":
+        if clue.orientation == "down":
             self.down_clue = clue
-        elif orientation == "across":
+        else:
             self.across_clue = clue
 
     def highlight(self, orientation: str) -> None:
         """Checks if the the tile should be highlighted"""
         if orientation == "across" and self.across_clue:
-            self.highlighted = any([tile.selected for tile in self.across_clue.tiles])
-        elif orientation == "down" and self.down_clue:
-            self.highlighted = any([tile.selected for tile in self.down_clue.tiles])
+            selected_clue = self.across_clue
+        elif self.down_clue:
+            selected_clue = self.down_clue
         else:
             self.highlighted = False
+            return
+        self.highlighted = any([tile.selected for tile in selected_clue.tiles])
 
     def is_correct(self) -> bool:
         """Checks if the tile is correctly filled in"""
@@ -74,20 +76,19 @@ class Tile:
     ) -> Generator[tuple[Color, Rect], None, None]:
         x_pos: int = padding + size * self.num_across
         y_pos: int = padding + size * self.num_down
+        inner_x: int = x_pos + border_width
+        inner_y: int = y_pos + border_width
+        inner_size: int = size - border_width * 2
+        
         outer_rect: Rect = Rect(x_pos, y_pos, size, size)
-        inner_rect: Rect = Rect(
-            x_pos + border_width,
-            y_pos + border_width,
-            size - border_width * 2,
-            size - border_width * 2,
-        )
+        inner_rect: Rect = Rect(inner_x, inner_y, inner_size, inner_size)
         if self.blocked:
             yield Color("black"), outer_rect
         else:
             yield Color(161, 161, 161), outer_rect # gray border
         if self.selected:
             yield Color(255, 217, 2), inner_rect   # yellow box
-        elif self.current_entry:
+        elif show_error and self.current_entry:
             if self.current_entry == self.correct_entry:
                 yield Color("green"), inner_rect   # green box
             else:
@@ -145,7 +146,7 @@ class Clue:
             raise ValueError("No tiles connected to clue")
         for value, tile in zip(self.solution, self.tiles):
             if tile.correct_entry == "" or tile.correct_entry == value:
-                tile.assign_clue(self, self.orientation)
+                tile.assign_clue(self)
                 tile.correct_entry = value
             else:
                 raise InvalidPuzzleError("Puzzle has conflicting clues")
@@ -193,6 +194,7 @@ class GameBoard:
         self.cols = cols
         self.tiles = self.make_tile_grid(rows, cols)
         self.selected_tile = self.get_tile(0, 0)
+        self.selected_tile.selected = True
 
     def make_tile_grid(self, rows: int, cols: int) -> list[list[Tile]]:
         """Make a tile grid for the board"""
@@ -211,9 +213,12 @@ class GameBoard:
         total_tiles = 0
         for row in self.tiles:
             for tile in row:
-                if tile.current_entry == tile.correct_entry:
-                    total_correct += 1
-                total_tiles += 1
+                if not tile.blocked and tile.current_entry:
+                    if tile.is_correct():
+                        total_correct += 1
+                    total_tiles += 1
+        if total_tiles == 0:
+            return 0
         return total_correct / total_tiles
 
     def in_bounds(self, num_down: int, num_across: int) -> bool:
@@ -299,7 +304,6 @@ class Crossword:
         self.clues = clues
         self.assign_clues_to_tiles()
         self.assign_blocked_tiles()
-        self.board.selected_tile.selected = True
 
     def assign_blocked_tiles(self) -> None:
         """Make any tile with an empty correct solution a blocked tile"""
@@ -356,3 +360,6 @@ class Crossword:
         next_index: int = (current_index + direction) % len(clues_list)
         next_clue: Clue = clues_list[next_index]
         self.board.change_selected_tile(next_clue.num_down, next_clue.num_across)
+
+    def __copy__(self) -> Crossword:
+        return Crossword(self.board.rows, self.board.cols, self.clues)
