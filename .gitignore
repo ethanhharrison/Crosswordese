@@ -2,3 +2,4 @@
 venv/
 nyt_crosswords-master/
 config.py
+data/
