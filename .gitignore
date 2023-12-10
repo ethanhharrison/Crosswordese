@@ -3,4 +3,3 @@ venv/
 data/
 nyt_crosswords-master/
 config.py
-data/qa_pairs.csv
