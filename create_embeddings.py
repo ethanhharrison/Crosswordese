@@ -3,7 +3,6 @@ import config # api key
 from crossword_parser import get_all_QA_pairs
 from tiktoken import encoding_for_model
 import os
-import openai
 import json
 
 GPT_MODEL = "gpt-3.5-turbo"
@@ -106,12 +105,6 @@ print(f"QA pairs saved to {filename}.")
 
 # run parallel processing
 os.system("sh parallel_process.sh")
-
-# df = pd.DataFrame({"text": QA_strings, "embedding": embeddings})
-
-# SAVE_PATH = "data/nyt_crossword_QA.csv"
-
-# df.to_csv(SAVE_PATH, index=False)
 
 # completion = client.chat.completions.create(
 #     model="gpt-3.5-turbo",
