@@ -6,7 +6,11 @@ class BadModelError(BaseException):
 
 class Solver:
     """Class to represent the puzzle solver"""
-    def __init__(self, puzzle: Crossword, has_solved: bool=False, guesses: list[str]=[]) -> None:
+    def __init__(self, 
+        puzzle: Crossword, 
+        has_solved: bool=False, 
+        guesses: list[str]=[]
+    ) -> None:
         self.puzzle = copy(puzzle)
         self.has_solved = has_solved
         self.guesses = guesses

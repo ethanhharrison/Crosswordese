@@ -72,7 +72,11 @@ class Tile:
         self.current_entry = ""
 
     def display_border(
-        self, padding: int, size: int, border_width: int, show_error: bool
+        self, 
+        padding: int, 
+        size: int, 
+        border_width: int, 
+        show_error: bool
     ) -> Generator[tuple[Color, Rect], None, None]:
         x_pos: int = padding + size * self.num_across
         y_pos: int = padding + size * self.num_down
@@ -99,7 +103,10 @@ class Tile:
             yield Color(255, 255, 255), inner_rect # white box
 
     def display_current_entry(
-        self, padding: int, size: int, font: Font
+        self, 
+        padding: int, 
+        size: int, 
+        font: Font
     ) -> Generator[tuple[Surface, Rect], None, None]:
         x_pos: int = padding + size * self.num_across
         y_pos: int = padding + size * self.num_down
@@ -110,7 +117,11 @@ class Tile:
             yield text, text_rect
 
     def display_clue_number(
-        self, number: int, padding: int, size: int, font: Font
+        self, 
+        number: int, 
+        padding: int, 
+        size: int, 
+        font: Font
     ) -> tuple[Surface, Rect]:
         x_pos: int = padding + size * self.num_across
         y_pos: int = padding + size * self.num_down
@@ -152,7 +163,12 @@ class Clue:
                 raise InvalidPuzzleError("Puzzle has conflicting clues")
 
     def display_question_text(
-        self, x_pos: int, y_pos: int, width: int, height: int, font: Font
+        self, 
+        x_pos: int, 
+        y_pos: int, 
+        width: int, 
+        height: int, 
+        font: Font
     ) -> list[tuple[Surface, Rect]]:
         clue_text: str = f"{self.number}{self.orientation[0].upper()}"
         clue_text += f"     {self.question}"
@@ -173,7 +189,11 @@ class Clue:
         return clue_lines
 
     def display_question_box(
-        self, x_pos: int, y_pos: int, width: int, height: int
+        self, 
+        x_pos: int, 
+        y_pos: int, 
+        width: int, 
+        height: int
     ) -> tuple[Color, Rect]:
         clue_bg_color: Color = Color(221, 239, 255)
         clue_rect: Rect = Rect(x_pos, y_pos, width, height)
@@ -246,7 +266,10 @@ class GameBoard:
         self.selected_tile.selected = True
 
     def display_board(
-        self, padding: int, tile_size: int, border_width: int
+        self, 
+        padding: int, 
+        tile_size: int, 
+        border_width: int
     ) -> tuple[Color, Rect]:
         board_width = tile_size * self.cols + border_width
         board_height = tile_size * self.rows + border_width
@@ -256,7 +279,11 @@ class GameBoard:
         return board_color, board_rect
 
     def display_tiles(
-        self, padding: int, tile_size: int, font: Font, show_errors: bool
+        self, 
+        padding: int, 
+        tile_size: int, 
+        font: Font, 
+        show_errors: bool
     ) -> Generator[tuple[list[tuple[Color, Rect]], list[tuple[Surface, Rect]]], None, None]:
         for i in range(len(self.tiles)):
             row: list[Tile] = self.tiles[i]
@@ -267,7 +294,11 @@ class GameBoard:
                 yield list(tile_display), list(text_display)
 
     def display_clue(
-        self, orientation: str, padding: int, tile_size: int, font: Font
+        self, 
+        orientation: str, 
+        padding: int, 
+        tile_size: int, 
+        font: Font
     ) -> tuple[tuple[Color, Rect], list[tuple[Surface, Rect]]]:
         x_pos: int = padding
         y_pos: int = padding + tile_size * self.rows + 10

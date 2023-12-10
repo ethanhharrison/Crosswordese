@@ -1,4 +1,6 @@
 import json
+from os import listdir
+from os.path import isfile, join
 from crossword import Clue
 
 
@@ -20,7 +22,12 @@ def get_clue_positons(crossword_data: dict) -> dict[int, tuple[int, int]]:
     return clue_positions
 
 
-def parse_clue(clue: str, answer: str, orientation: str, positions: dict) -> Clue:
+def parse_clue(
+    clue: str, 
+    answer: str, 
+    orientation: str, 
+    positions: dict
+) -> Clue:
     number, question = clue.split(". ", 1)
     num_down, num_across = positions[int(number)]
     return Clue(int(number), question, answer, orientation, num_down, num_across)
@@ -45,3 +52,18 @@ def parse_crossword_json(file_path: str) -> tuple[int, int, list[Clue]]:
     clue_positions = get_clue_positons(data)
     clues = get_clues(data, clue_positions)
     return rows, cols, clues
+
+
+def get_all_QA_pairs(path) -> list[Clue]:
+    """Return all of the json files within a folder"""
+    if isfile(path):
+        try:
+            _, _, clues = parse_crossword_json(path)
+            return clues
+        except json.decoder.JSONDecodeError: # catch any poorly-formatted files
+            return []
+    else:
+        all_files = []
+        for f in listdir(path):
+            all_files += get_all_QA_pairs(join(path, f))
+        return all_files
