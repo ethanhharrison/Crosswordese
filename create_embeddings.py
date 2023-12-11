@@ -5,7 +5,11 @@ from tiktoken import encoding_for_model
 import os
 import json
 
+QA_PAIR_FOLDER = "nyt_crosswords-master"
 GPT_MODEL = "gpt-3.5-turbo"
+EMBEDDING_MODEL = "text-embedding-ada-002"
+MAX_TOKENS = 1600
+BATCH_SIZE = 1000
 
 # Recursively split QA dataset to smaller sections so GPT can read it
 # see: https://cookbook.openai.com/examples/embedding_wikipedia_articles_for_search
@@ -70,47 +74,39 @@ def split_string(
             print(f"{len(string)} string split into {len(results)} strings.")
         return results
 
-# collect data
-QA_PAIR_FOLDER = "nyt_crosswords-master"
-QA_list = get_all_QA_pairs(QA_PAIR_FOLDER)
-QA_text = ""
-for clue in QA_list:
-    QA_text += f"{clue.question} ({len(clue.solution)} letters): {clue.solution}\n"
-print(f"{len(QA_list)} QA pairs collected")
-    
-# split sections into chunks
-MAX_TOKENS = 1600
-QA_strings = split_string(QA_text, max_tokens=MAX_TOKENS)
-print(f"{len(QA_list)} QA pairs split into {len(QA_strings)} strings.")
+def main() -> None:
+    # collect data
+    QA_list = get_all_QA_pairs(QA_PAIR_FOLDER)
+    QA_text = ""
+    for clue in QA_list:
+        QA_text += f"{clue.question} ({len(clue.solution)} letters): {clue.solution}\n"
+    print(f"{len(QA_list)} QA pairs collected")
+        
+    # split sections into chunks
+    # QA_strings = split_string(QA_text, max_tokens=MAX_TOKENS)
+    QA_strings = QA_text.split("\n") # turns out splitting it by line works best lol
+    print(f"{len(QA_list)} QA pairs split into {len(QA_strings)} strings.")
 
-# embedding chunks in batches through the parallel processor
-EMBEDDING_MODEL = "text-embedding-ada-002"
-BATCH_SIZE = 10
-QA_batches = []
-for batch_start in range(0, len(QA_strings), BATCH_SIZE):
-    batch_end = batch_start + BATCH_SIZE
-    batch = QA_strings[batch_start:batch_end]
-    QA_batches.append(batch)
-    print(f"Batch {batch_start} to {batch_end-1}")
-    
-# save strings to jsonl file for parallel processing
-# see: https://github.com/openai/openai-cookbook/blob/main/examples/api_request_parallel_processor.py
-filename = "data/nyt_qa_requests_to_parallel_process.jsonl"
-jobs = [{"model": EMBEDDING_MODEL, "input": QA_batch} for QA_batch in QA_batches]
-with open(filename, "w") as f:
-    for job in jobs:
-        json_string = json.dumps(job)
-        f.write(json_string + "\n")
-print(f"QA pairs saved to {filename}.")
+    # embedding chunks in batches through the parallel processor
+    QA_batches = []
+    for batch_start in range(0, len(QA_strings), BATCH_SIZE):
+        batch_end = batch_start + BATCH_SIZE
+        batch = QA_strings[batch_start:batch_end]
+        QA_batches.append(batch)
+        print(f"Batch {batch_start} to {batch_end-1}")
+        
+    # save strings to jsonl file for parallel processing
+    # see: https://github.com/openai/openai-cookbook/blob/main/examples/api_request_parallel_processor.py
+    filename = "data/nyt_qa_requests_to_parallel_process.jsonl"
+    jobs = [{"model": EMBEDDING_MODEL, "input": QA_batch} for QA_batch in QA_batches]
+    with open(filename, "w") as f:
+        for job in jobs:
+            json_string = json.dumps(job)
+            f.write(json_string + "\n")
+    print(f"QA pairs saved to {filename}.")
 
-# run parallel processing
-os.system("sh parallel_process.sh")
+    # run parallel processing
+    os.system("sh parallel_process.sh")
 
-# completion = client.chat.completions.create(
-#     model="gpt-3.5-turbo",
-#     temperature=0.6,
-#     messages=[
-#         {"role": "system", "content": "You are an expert crossword solver. When given a crossword clue and the length of the clue's answer, you briefly answer the clue in all caps. Your response must be the length of the answer."},
-#         {"role": "user", "content": "Clue: 'Car mentioned in 'Hotel California,' informally', Answer Length: 8 Letters"},
-#     ]
-# )
+if __name__ == "__main__":
+    main()
