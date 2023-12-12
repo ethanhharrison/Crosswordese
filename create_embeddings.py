@@ -1,5 +1,3 @@
-import config  # api key
-
 from crossword_parser import get_all_QA_pairs
 from tiktoken import encoding_for_model
 import os

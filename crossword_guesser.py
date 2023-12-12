@@ -1,5 +1,3 @@
-import config  # api key
-
 from create_embeddings import EMBEDDING_MODEL, GPT_MODEL, SAVE_PATH, num_tokens
 from crossword import Crossword, Clue
 from copy import copy
@@ -131,9 +129,7 @@ def main() -> None:
         engine="python",
         on_bad_lines="warn",
     )
-    ddf["embedding"] = ddf["embedding"].apply(
-        try_literal_eval, meta=("embedding", "object")
-    )
+    ddf["embedding"] = ddf["embedding"].apply(try_literal_eval, meta=("embedding", "object"))
     ddf = ddf.dropna()
     # example question
     question = """Paper size longer than letter (5 Letters)"""
