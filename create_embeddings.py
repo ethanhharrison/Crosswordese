@@ -4,12 +4,13 @@ from crossword_parser import get_all_QA_pairs
 from tiktoken import encoding_for_model
 import os
 import json
+import re
 
 QA_PAIR_FOLDER = "nyt_crosswords-master"
 GPT_MODEL = "gpt-3.5-turbo"
 EMBEDDING_MODEL = "text-embedding-ada-002"
 MAX_TOKENS = 1600
-BATCH_SIZE = 1000
+BATCH_SIZE = 40
 
 # Recursively split QA dataset to smaller sections so GPT can read it
 # see: https://cookbook.openai.com/examples/embedding_wikipedia_articles_for_search
@@ -71,8 +72,31 @@ def split_string(
             )
             results.extend(half_strings)
         if len(results) > 2000:
-            print(f"{len(string)} string split into {len(results)} strings.")
+            print(f"{len(string)}-long string split into {len(results)} strings.")
         return results
+    
+def split_string_by_lines(
+    string: str,
+    lines_per_split: int,
+    max_tokens: int = 1000,
+    model = GPT_MODEL
+):
+    split_string = string.split("\n")
+    all_splits = []
+    i = 0
+    split_size = lines_per_split
+    while i < len(split_string) - split_size:
+        combined_string = "\n".join(split_string[i:i+split_size])
+        if num_tokens(combined_string) <= max_tokens:
+            all_splits.append(combined_string)
+            i += split_size
+            split_size = lines_per_split
+        elif split_size == 1: # this should basically never happen
+            truncated = truncated_string(combined_string, model=model, max_tokens=max_tokens)
+            all_splits.append(truncated)
+        else:
+            split_size -= 1
+    return all_splits
 
 def main() -> None:
     # collect data
@@ -84,8 +108,9 @@ def main() -> None:
         
     # split sections into chunks
     # QA_strings = split_string(QA_text, max_tokens=MAX_TOKENS)
-    QA_strings = QA_text.split("\n") # turns out splitting it by line works best lol
+    QA_strings = split_string_by_lines(QA_text, 20, max_tokens=MAX_TOKENS)
     print(f"{len(QA_list)} QA pairs split into {len(QA_strings)} strings.")
+    print(num_tokens(QA_strings[0]))
 
     # embedding chunks in batches through the parallel processor
     QA_batches = []
