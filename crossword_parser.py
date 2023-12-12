@@ -1,6 +1,6 @@
+from distutils import text_file
 import json
-from os import listdir
-from os.path import isfile, join
+import os
 from crossword import Clue
 
 
@@ -54,9 +54,9 @@ def parse_crossword_json(file_path: str) -> tuple[int, int, list[Clue]]:
     return rows, cols, clues
 
 
-def get_all_QA_pairs(path) -> list[Clue]:
+def get_all_QA_pairs(path: str) -> list[Clue]:
     """Return all of the json files within a folder"""
-    if isfile(path):
+    if os.path.isfile(path):
         try:
             _, _, clues = parse_crossword_json(path)
             return clues
@@ -64,6 +64,31 @@ def get_all_QA_pairs(path) -> list[Clue]:
             return []
     else:
         all_files = []
-        for f in listdir(path):
-            all_files += get_all_QA_pairs(join(path, f))
+        for f in os.listdir(path):
+            all_files += get_all_QA_pairs(os.path.join(path, f))
         return all_files
+    
+def get_QA_pairs_as_txt(path: str) -> None:
+    new_folder = "data/qa_text"
+    if not os.path.exists(new_folder):
+        os.makedirs(new_folder)
+    if os.path.isfile(path):
+        try: 
+            _, _, clues = parse_crossword_json(path)
+            file_name = "_".join(path.split("/")[1:-1]) + ".txt"
+            file_name = os.path.join(new_folder, file_name)
+            print(file_name)
+            with open(file_name, "a") as file:
+                for clue in clues:
+                    file.write(f"{clue.question} ({len(clue.solution)} letters): {clue.solution}\n")
+        except json.decoder.JSONDecodeError:
+            pass
+    else:
+        for f in os.listdir(path):
+            get_QA_pairs_as_txt(os.path.join(path, f))
+            
+def main():
+    get_QA_pairs_as_txt("nyt_crosswords-master")
+
+if __name__ == "__main__":
+    main()

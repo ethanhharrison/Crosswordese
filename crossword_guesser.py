@@ -1,4 +1,5 @@
 from create_embeddings import EMBEDDING_MODEL, GPT_MODEL, SAVE_PATH, num_tokens
+from database_utils import query_database
 from crossword import Crossword, Clue
 from copy import copy
 from scipy import spatial
