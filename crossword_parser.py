@@ -1,8 +1,6 @@
-from distutils import text_file
+from crossword import Clue
 import json
 import os
-from crossword import Clue
-
 
 def read_json_file(file_path: str) -> dict:
     with open(file_path) as file:
@@ -86,9 +84,3 @@ def get_QA_pairs_as_txt(path: str) -> None:
     else:
         for f in os.listdir(path):
             get_QA_pairs_as_txt(os.path.join(path, f))
-            
-def main():
-    get_QA_pairs_as_txt("nyt_crosswords-master")
-
-if __name__ == "__main__":
-    main()

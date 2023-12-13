@@ -83,5 +83,5 @@ def query_database(query_prompt: str) -> Dict[str, Any]:
         raise ValueError(f"Error: {response.status_code} : {response.content}")
 
 
-if __name__ == "__main__":
-    upsert_file("data/qa_text")
+# if __name__ == "__main__":
+#     upsert_file("")

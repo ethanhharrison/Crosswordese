@@ -391,6 +391,3 @@ class Crossword:
         next_index: int = (current_index + direction) % len(clues_list)
         next_clue: Clue = clues_list[next_index]
         self.board.change_selected_tile(next_clue.num_down, next_clue.num_across)
-
-    def __copy__(self) -> Crossword:
-        return Crossword(self.board.rows, self.board.cols, self.clues)
