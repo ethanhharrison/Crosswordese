@@ -1,8 +1,10 @@
+from config import OPENAI_API_KEY
 from create_embeddings import EMBEDDING_MODEL, GPT_MODEL, SAVE_PATH, num_tokens
 from database_utils import query_database
 from crossword import Crossword, Clue
 from copy import copy
 from scipy import spatial
+import logging
 import pandas as pd
 import dask.dataframe as dd
 import openai
@@ -46,74 +48,67 @@ class Solver:
         else:
             return -1
 
+def apply_prompt_template(question: str) -> str:
+    prompt = f"""
+    You are an expert crossword solver. When given a crossword clue and the length 
+    of the clue's answer, you briefly give your FIVE best guesses for the clue. 
+    
+    Your guesses MUST be the length of the answer and should be in all caps. Now, please
+    answer this clue:
+    
+    Use the provided clue-answer pairs above to help answer this next clue.
+    
+    {question}
+    """
+    return prompt
 
-# search function which takes the query and the dataframe to rank the most similar embeddings
-# see: https://cookbook.openai.com/examples/question_answering_using_embeddings
-def strings_ranked_by_relatedness(
-    query: str,
-    df: pd.DataFrame,
-    relatedness_fn=lambda x, y: 1 - spatial.distance.cosine(x, y),
-    top_n: int = 100,
-) -> tuple[list[str], list[float]]:
-    """Returns a list of strings and relatedness, sorted from most related to least"""
-    print("Searching for most related clues")
-    query_embedding_response = openai.embeddings.create(
-        model=EMBEDDING_MODEL, input=query
-    )
-    query_embedding = query_embedding_response.data[0].embedding
-    strings_and_relatedness = []
-    for i, row in df.iterrows():
-        relatedness = relatedness_fn(query_embedding, row["embedding"])
-        print(f"Row {i} relatedness: {relatedness}")
-        strings_and_relatedness.append((row["text"], relatedness))
-    strings_and_relatedness.sort(key=lambda x: x[1], reverse=True)
-    strings, relatedness = zip(*strings_and_relatedness)
-    return strings[:top_n], relatedness[:top_n]
-
-
-def query_message(query: str, df: pd.DataFrame, model: str, token_budget: int) -> str:
-    """Return a message for GPT, with relevant source texts pulled from a dataframe."""
-    strings, relatedness = strings_ranked_by_relatedness(query, df, top_n=10)
-    print("Querying message")
-    introduction = "Use the below clues and their respective answers to help you solve the subsequent clue."
-    question = f"\n\n{query}"
-    message = introduction
-    for string in strings:
-        next_clue_set = f'\n\nClue Set:"""\n{string}\n"""'
-        if num_tokens(message + next_clue_set + question, model=model) > token_budget:
-            print("WARNING: Length of clue sets exceeded token budget.")
-            break
-        else:
-            message += next_clue_set
-    return message + question
-
-
-def ask(
-    query: str,
-    df: pd.DataFrame,
-    model: str = GPT_MODEL,
-    token_budget: int = 4096 - 500,
-    print_message: bool = False,
-) -> str:
-    """Answers a query using GPT and a dataframe of relevant texts and embeddings."""
-    message = query_message(query, df, model=model, token_budget=token_budget)
-    if print_message:
-        print(message)
-    messages = [
-        {
-            "role": "system",
-            "content": """You are an expert crossword solver. When given a crossword clue and the length 
-                       of the clue's answer, you briefly give your FIVE best guesses for the clue. Your 
-                       guesses MUST be the length of the answer and should be in all caps.""",
-        },
-        {"role": "user", "content": message},
-    ]
-    print("Asking question")
+def call_chatgpt_api(question: str, chunks: list[str]):
+    """
+    Call chatgpt api with user's question and retrieved chunks.
+    """
+    # Send a request to the GPT-3 API
+    messages = list(
+        map(lambda chunk: {
+            "role": "user",
+            "content": chunk
+        }, chunks))
+    question = apply_prompt_template(question)
+    messages.append({"role": "user", "content": question})
+    for d in messages:
+        print(d["content"])
     response = openai.chat.completions.create(
-        model=model, messages=messages, temperature=0.4  # type: ignore
+        model="gpt-3.5-turbo",
+        messages=messages, # type: ignore
+        max_tokens=1024,
+        temperature=0.3,  # High temperature leads to a more creative response.
     )
-    response_message = response.choices[0].message.content
-    return response_message  # type: ignore
+    return response
+
+
+def ask(user_question: str) -> str:
+    """
+    Handle user's questions.
+    """
+    # Get chunks from database.
+    chunks_response = query_database(user_question)
+    chunks = []
+    for result in chunks_response["results"]:
+        for inner_result in result["results"]:
+            text = inner_result["text"].split()
+            clue = ""
+            for word in text:
+                clue += " " + word
+                if len(word) >= 3 and word.isupper():
+                    chunks.append(clue)
+                    clue = ""
+    
+    logging.info("User's questions: %s", user_question)
+    logging.info("Retrieved chunks: %s", chunks)
+    
+    response = call_chatgpt_api(user_question, chunks)
+    logging.info("Response: %s", response)
+    
+    return response.choices[0].message.content # type: ignore
 
 
 def try_literal_eval(row):
@@ -124,18 +119,11 @@ def try_literal_eval(row):
 
 
 def main() -> None:
-    ddf = dd.read_csv(  # type: ignore
-        SAVE_PATH,
-        dtype={"text": str},
-        engine="python",
-        on_bad_lines="warn",
-    )
-    ddf["embedding"] = ddf["embedding"].apply(try_literal_eval, meta=("embedding", "object"))
-    ddf = ddf.dropna()
-    # example question
-    question = """Paper size longer than letter (5 Letters)"""
-    repsonse = ask(question, ddf, print_message=True)
-    print(repsonse)
+    user_query = input("Enter Clue:")
+    openai.api_key = OPENAI_API_KEY
+    logging.basicConfig(level=logging.WARNING,
+                        format="%(asctime)s %(levelname)s %(message)s")
+    print(ask(user_query))
 
 
 if __name__ == "__main__":
