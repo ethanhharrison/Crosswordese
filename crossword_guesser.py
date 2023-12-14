@@ -20,15 +20,15 @@ class Solver:
         self.guesses = guesses
 
     # given a crossword, solve for each tile in the puzzle
-    def solve(self) -> None:
-        solutions: dict[Clue, str] = {}
+    def solve(self) -> float:
         for clue in self.puzzle.clues:
             sol: str = self.answer_clue(clue)
-            solutions[clue] = sol
-        for clue, sol in solutions.items():
+            question: str = f"{clue.question} ({len(clue.tiles)} letters):"
+            self.guesses[question] = sol
+            print(f"{question} {sol}")
             for tile, char in zip(clue.tiles, sol):
                 tile.fill(char)
-        self.has_solved = True
+        return self.accuracy()
 
     # given a clue, answer it!
     def answer_clue(self, clue: Clue) -> str:
@@ -48,10 +48,7 @@ class Solver:
         return self.guesses[question]
 
     def accuracy(self) -> float:
-        if self.has_solved:
-            return self.puzzle.board.accuracy()
-        else:
-            return -1
+        return self.puzzle.board.accuracy()
 
 # Prompt engineering WOOOOOOO
 # This can certainly be improved: https://betterprogramming.pub/enhancing-chatgpt-with-infinite-external-memory-using-vector-database-and-chatgpt-retrieval-plugin-b6f4ea16ab8
@@ -128,10 +125,7 @@ def main() -> None:
     rows, cols, clues = parse_crossword_json("nyt_crosswords-master/2001/09/11.json")
     crossword = Crossword(rows, cols, clues)
     solver = Solver(crossword)
-    for clue in solver.puzzle.clues:
-        question = f"{clue.question} ({len(clue.tiles)} letters):"
-        solver.answer_clue(clue)
-        print(f"{question} {solver.guesses[question]}")
+    solver.solve()
 
 if __name__ == "__main__":
     main()

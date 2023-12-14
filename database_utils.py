@@ -9,7 +9,7 @@ Enhancing ChatGPT With Infinite External Memory Using Vector Database and ChatGP
 See: https://betterprogramming.pub/enhancing-chatgpt-with-infinite-external-memory-using-vector-database-and-chatgpt-retrieval-plugin-b6f4ea16ab8
 """
 
-SEARCH_TOP_K = 10
+SEARCH_TOP_K = 10 # decides how many clue sets will be provided to chat gpt before QA
 
 def upsert_file(directory: str):
     """
@@ -82,6 +82,6 @@ def query_database(query_prompt: str) -> Dict[str, Any]:
     else:
         raise ValueError(f"Error: {response.status_code} : {response.content}")
 
-
+# if you want to reupload more files to the pinecone database
 # if __name__ == "__main__":
 #     upsert_file("")

@@ -333,6 +333,7 @@ class Crossword:
     def __init__(self, rows: int, cols: int, clues: list[Clue]) -> None:
         self.board = GameBoard(rows, cols)
         self.clues = clues
+        self.orientation = "across"
         self.assign_clues_to_tiles()
         self.assign_blocked_tiles()
 
@@ -391,3 +392,11 @@ class Crossword:
         next_index: int = (current_index + direction) % len(clues_list)
         next_clue: Clue = clues_list[next_index]
         self.board.change_selected_tile(next_clue.num_down, next_clue.num_across)
+        
+    def move_to_given_clue(self, clue: Clue) -> None:
+        for next_clue in self.clues:
+            if next_clue is clue:
+                start_down, start_across = next_clue.num_down, next_clue.num_across
+                self.orientation = next_clue.orientation
+                self.board.change_selected_tile(start_down, start_across)
+                
