@@ -1,6 +1,6 @@
 from time import sleep
 from crossword import Crossword
-from crossword_guesser import BadModelError, Solver
+from crossword_guesser import Solver
 from crossword_parser import parse_crossword_json
 import pygame
 
@@ -10,7 +10,7 @@ pygame.init()
 
 
 # get board
-rows, cols, clues = parse_crossword_json("nyt_crosswords-master/1990/08/03.json")
+rows, cols, clues = parse_crossword_json("nyt_crosswords-master/1987/05/14.json")
 crossword = Crossword(rows, cols, clues)
 solver = Solver(crossword)
 run_solver = True
@@ -161,14 +161,14 @@ while True:
     pygame.display.update()
     
     # Run the solver
-    if run_solver and clue_index < len(clue_list): # type: ignore
-        current_clue = clue_list[clue_index] # type: ignore
+    if run_solver and clue_index < len(clue_list):                      # type: ignore
+        current_clue = clue_list[clue_index]                            # type: ignore
         try:
-            guess = solver.answer_clue(current_clue) # type: ignore
-            for tile, char in zip(current_clue.tiles, guess): # type: ignore
+            guess = solver.answer_clue(current_clue)                    # type: ignore
+            for tile, char in zip(current_clue.tiles, guess):           # type: ignore
                     tile.fill(char)
         except BaseException as be:
             print(be)
-        clue_index += 1 # type: ignore
-        if clue_index < len(clue_list): # type: ignore
-            crossword.move_to_given_clue(clue_list[clue_index]) # type: ignore
+        clue_index += 1                                                 # type: ignore
+        if clue_index < len(clue_list):                                 # type: ignore
+            crossword.move_to_given_clue(clue_list[clue_index])         # type: ignore
