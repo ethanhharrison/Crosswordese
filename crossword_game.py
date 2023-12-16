@@ -1,4 +1,3 @@
-from time import sleep
 from crossword import Crossword
 from crossword_guesser import Solver
 from crossword_parser import parse_crossword_json
@@ -10,10 +9,10 @@ pygame.init()
 
 
 # get board
-rows, cols, clues = parse_crossword_json("nyt_crosswords-master/1987/05/14.json")
+rows, cols, clues = parse_crossword_json("nyt_crosswords-master\\nyt_crosswords-master\\1987\\05\\14.json")
 crossword = Crossword(rows, cols, clues)
 solver = Solver(crossword)
-run_solver = True
+run_solver = False
 
 # starting clue
 if run_solver:
@@ -33,7 +32,7 @@ display_surface = pygame.display.set_mode((screen_width, SCREEN_HEIGHT))
 
 
 # select font
-entry_font_size = int(tile_size / 1.5)
+entry_font_size = int(tile_size / 1.25)
 arialunicode = pygame.font.match_font("arialunicode")
 entry_font = pygame.font.Font(arialunicode, entry_font_size)
 clue_number_font = pygame.font.Font(arialunicode, entry_font_size // 2)

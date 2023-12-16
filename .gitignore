@@ -3,3 +3,5 @@ venv/
 data/
 nyt_crosswords-master/
 config.py
+__pycache__
+Crosswordese.code-workspace
