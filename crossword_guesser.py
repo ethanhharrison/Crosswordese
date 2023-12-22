@@ -1,6 +1,6 @@
 from config import OPENAI_API_KEY
 from crossword_parser import parse_crossword_json
-from database_utils import query_database
+# from database_utils import query_database # embedding model does not use external database
 from crossword import Crossword, Clue
 import logging
 import openai
@@ -98,7 +98,7 @@ def ask(user_question: str) -> str:
     Handle user's questions.
     """
     # Get chunks from database.
-    chunks_response = query_database(user_question)
+    chunks_response = query_database(user_question) # external database not accessable in embedding model branch
     chunks = []
     for result in chunks_response["results"]:
         for inner_result in result["results"]:

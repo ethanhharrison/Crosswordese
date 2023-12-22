@@ -86,37 +86,31 @@ def get_QA_pairs_as_txt(path: str) -> None:
         for f in os.listdir(path):
             get_QA_pairs_as_txt(os.path.join(path, f))
             
-def update_dict(d1: dict, d2: dict) -> dict:
-    for key, value in d2.items():
-        if type(value) == str:
-            value = [value]
-        if key in d1:
-            if len(d1[key]) < 3:
-                d1[key].extend(value)
-        else:
-            d1[key] = value
-    return d1
             
-def get_unique_answers(path: str) -> dict[str, list]:
-    unique_qa_pairs = {} # answer: question
+def get_unique_answers(path: str) -> tuple[list, list]:
+    answers = []
+    questions = []
     if os.path.isfile(path):
         print(path)
         try:
             _, _, clues = parse_crossword_json(path)
-            clue_dict = {clue.solution: clue.question for clue in clues}
-            unique_qa_pairs = update_dict(unique_qa_pairs, clue_dict)
+            answers = [clue.solution for clue in clues]
+            questions = [clue.question for clue in clues]
         except json.decoder.JSONDecodeError:
             pass
     else:
         for f in os.listdir(path):
-            unique_qa_pairs = update_dict(unique_qa_pairs, get_unique_answers(os.path.join(path, f)))
-    return unique_qa_pairs
+            rec_answers, rec_questions = get_unique_answers(os.path.join(path, f))
+            answers.extend(rec_answers)
+            questions.extend(rec_questions)
+    return answers, questions
 
 def main() -> None:
-    d = get_unique_answers("nyt_crosswords-master")
-    df = pd.DataFrame(list(d.items()), columns=["Answer", "Clue"])
+    answers, questions = get_unique_answers("nyt_crosswords-master")
+    df = pd.DataFrame({"Answer": answers, "Clue": questions})
+    df = df.groupby("Answer").head(10)
+    df = df.drop(df[df["Answer"].str.contains(r'[^a-zA-Z]')].index)
     df.sort_values(by=["Answer"], inplace=True,  na_position='first')
-    print(df.shape[0])
     df.to_csv("data/unique_qa_pairs.csv", index=False)
     
 if __name__ == "__main__":
