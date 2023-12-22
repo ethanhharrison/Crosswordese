@@ -66,6 +66,9 @@ class Tile:
             raise ValueError("Invalid character")
         else:
             self.current_entry = value.upper()
+    
+    def is_filled(self) -> bool:
+        return bool(self.current_entry)
 
     def remove(self) -> None:
         """Removes the tile's current entry"""
@@ -161,6 +164,9 @@ class Clue:
                 tile.correct_entry = value
             else:
                 raise InvalidPuzzleError("Puzzle has conflicting clues")
+            
+    def is_filled(self) -> bool:
+        return all([t.is_filled() for t in self.tiles])
 
     def display_question_text(
         self, 

@@ -1,4 +1,3 @@
-from enum import unique
 from crossword import Clue
 import pandas as pd
 import json

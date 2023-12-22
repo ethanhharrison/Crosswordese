@@ -9,10 +9,10 @@ pygame.init()
 
 
 # get board
-rows, cols, clues = parse_crossword_json("nyt_crosswords-master\\nyt_crosswords-master\\1987\\05\\14.json")
+rows, cols, clues = parse_crossword_json("nyt_crosswords-master/1998/10/01.json")
 crossword = Crossword(rows, cols, clues)
 solver = Solver(crossword)
-run_solver = False
+run_solver = True
 
 # starting clue
 if run_solver:
@@ -32,7 +32,7 @@ display_surface = pygame.display.set_mode((screen_width, SCREEN_HEIGHT))
 
 
 # select font
-entry_font_size = int(tile_size / 1.25)
+entry_font_size = int(tile_size / 1.5)
 arialunicode = pygame.font.match_font("arialunicode")
 entry_font = pygame.font.Font(arialunicode, entry_font_size)
 clue_number_font = pygame.font.Font(arialunicode, entry_font_size // 2)
@@ -163,9 +163,10 @@ while True:
     if run_solver and clue_index < len(clue_list):                      # type: ignore
         current_clue = clue_list[clue_index]                            # type: ignore
         try:
-            guess = solver.answer_clue(current_clue)                    # type: ignore
-            for tile, char in zip(current_clue.tiles, guess):           # type: ignore
-                    tile.fill(char)
+            if not current_clue.is_filled():
+                guess = solver.answer_clue(current_clue)                    # type: ignore
+                for tile, char in zip(current_clue.tiles, guess):           # type: ignore
+                        tile.fill(char)
         except BaseException as be:
             print(be)
         clue_index += 1                                                 # type: ignore
