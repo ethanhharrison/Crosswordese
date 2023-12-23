@@ -14,6 +14,7 @@ optimal_run_cache = "data/best_run.pkl"
 embedding_cache_path = "data/clueqa_embedding_cache.pkl"  # embeddings will be saved/loaded here
 default_embedding_engine = "text-embedding-ada-002"  # text-embedding-ada-002 is recommended
 local_dataset_path = "data/unique_qa_pairs.csv" 
+run_hyperparameter_search = True
 num_pairs_to_embed = 5000  # 1000 is arbitrary
 random_seed = 1987
 
@@ -87,6 +88,7 @@ def apply_matrix_to_embeddings_dataframe(matrix: torch.Tensor, df: pd.DataFrame)
         ),
         axis=1,
     )
+    return df
     
 def optimize_matrix(
     df: pd.DataFrame,
@@ -172,7 +174,7 @@ def optimize_matrix(
         test_loss = mse_loss(test_predictions, s_test)
 
         # compute custom embeddings and new cosine similarities
-        apply_matrix_to_embeddings_dataframe(matrix, df)
+        df = apply_matrix_to_embeddings_dataframe(matrix, df)
 
         # calculate test accuracy
         for dataset in ["train", "test"]:
@@ -301,15 +303,10 @@ def main():
         lambda row: cosine_similarity(row["text_1_embedding"], row["text_2_embedding"]),
         axis = 1
     )
-    df.to_csv("data/qa_dataset.csv", index=False)
         
     # example hyperparameter search
     # I recommend starting with max_epochs=10 while initially exploring
-    try:
-        with open(optimal_run_cache, "rb") as f:
-            best_run = pickle.load(f)
-            best_matrix = best_run["matrix"]
-    except FileNotFoundError:
+    if run_hyperparameter_search:
         results = []
         max_epochs = 30
         dropout_fraction = 0.2
@@ -336,9 +333,13 @@ def main():
 
         # plot accuracy over time
         plot_hyperparameter_training(runs_df, measure_loss=False)
+    else:
+        with open(optimal_run_cache, "rb") as f:
+            best_run = pickle.load(f)
+            best_matrix = best_run["matrix"]
     
     # apply result of best run to original data
-    apply_matrix_to_embeddings_dataframe(best_matrix, df)
+    df = apply_matrix_to_embeddings_dataframe(best_matrix, df)
     
     # plot similarity distribution BEFORE customization
     plot_cosine_similarity_histogram(df, custom=False)
