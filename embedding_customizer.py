@@ -3,12 +3,14 @@ import pandas as pd
 import plotly.express as px
 import pickle
 import random
+import operator
 from sklearn.model_selection import train_test_split
 import torch
 
 from embeddings_util import get_embedding, cosine_similarity
 
 # input parameters
+optimal_run_cache = "data/best_run.pkl"
 embedding_cache_path = "data/clueqa_embedding_cache.pkl"  # embeddings will be saved/loaded here
 default_embedding_engine = "text-embedding-ada-002"  # text-embedding-ada-002 is recommended
 local_dataset_path = "data/unique_qa_pairs.csv" 
@@ -44,8 +46,8 @@ def dataframe_of_negatives(df_of_positives: pd.DataFrame) -> pd.DataFrame:
 
 # calculate accuracy (and its standard error) of predicting label=1 if similarity>x
 # x is optimized by sweeping from -1 to 1 in steps of 0.01
-def accuracy_and_se(cosine_similarity, labeled_similarity) -> tuple[float, float]:
-    accuracies = []
+def accuracy_and_se(cosine_similarity, labeled_similarity) -> tuple[float, float, float]:
+    accuracies = {}
     for threshold_thousandths in range(-1000, 1000, 1):
         threshold = threshold_thousandths / 1000
         total = 0
@@ -59,11 +61,11 @@ def accuracy_and_se(cosine_similarity, labeled_similarity) -> tuple[float, float
             if prediction == ls:
                 correct += 1
         accuracy = correct / total
-        accuracies.append(accuracy)
-    a = max(accuracies)
+        accuracies[threshold] = accuracy
+    threshold, a = max(accuracies.items(), key=operator.itemgetter(1))
     n = len(cosine_similarity)
     standard_error = (a * (1 - a) / n) ** 0.5  # standard error of binomial
-    return a, standard_error
+    return threshold, a, standard_error
 
 def embedding_multiplied_by_matrix(
         embedding: list[float], matrix: torch.Tensor
@@ -175,7 +177,7 @@ def optimize_matrix(
         # calculate test accuracy
         for dataset in ["train", "test"]:
             data = df[df["dataset"] == dataset]
-            a, se = accuracy_and_se(data["cosine_similarity_custom"], data["label"])
+            threshold, a, se = accuracy_and_se(data["cosine_similarity_custom"], data["label"])
 
             # record results of each epoch
             epochs.append(epoch)
@@ -239,7 +241,7 @@ def main():
     df = process_input_data(df)
     
     # split data into training and testing
-    test_fraction = 0.5
+    test_fraction = 0.3
     train_df, test_df = train_test_split(
         df, test_size=test_fraction, stratify=df["label"], random_state=random_seed
     )
@@ -299,49 +301,57 @@ def main():
         lambda row: cosine_similarity(row["text_1_embedding"], row["text_2_embedding"]),
         axis = 1
     )
+    df.to_csv("data/qa_dataset.csv", index=False)
         
     # example hyperparameter search
     # I recommend starting with max_epochs=10 while initially exploring
-    results = []
-    max_epochs = 30
-    dropout_fraction = 0.2
-    for batch_size, learning_rate in [(1000, 1000), (2000, 2000), (3000, 3000)]:
-        result = optimize_matrix(
-            df=df,
-            batch_size=batch_size,
-            learning_rate=learning_rate,
-            max_epochs=max_epochs,
-            dropout_fraction=dropout_fraction,
-            save_results=False,
-        )
-        results.append(result)
+    try:
+        with open(optimal_run_cache, "rb") as f:
+            best_run = pickle.load(f)
+            best_matrix = best_run["matrix"]
+    except FileNotFoundError:
+        results = []
+        max_epochs = 30
+        dropout_fraction = 0.2
+        for batch_size, learning_rate in [(1000, 1000), (1250, 1250), (1500, 1500)]:
+            result = optimize_matrix(
+                df=df,
+                batch_size=batch_size,
+                learning_rate=learning_rate,
+                max_epochs=max_epochs,
+                dropout_fraction=dropout_fraction,
+                save_results=False,
+            )
+            results.append(result)
+            
+        runs_df = pd.concat(results)
+        best_run = runs_df.sort_values(by="accuracy", ascending=False).iloc[0]
+        with open(optimal_run_cache, "wb") as optimal_run_file:
+            pickle.dump(best_run, optimal_run_file)
         
-    runs_df = pd.concat(results)
+        best_matrix = best_run["matrix"]
 
+        # plot training loss and test loss over time
+        plot_hyperparameter_training(runs_df, measure_loss=True)
 
-    # plot training loss and test loss over time
-    plot_hyperparameter_training(runs_df, measure_loss=True)
-
-    # plot accuracy over time
-    plot_hyperparameter_training(runs_df, measure_loss=False)
+        # plot accuracy over time
+        plot_hyperparameter_training(runs_df, measure_loss=False)
     
     # apply result of best run to original data
-    best_run = runs_df.sort_values(by="accuracy", ascending=False).iloc[0]
-    best_matrix = best_run["matrix"]
     apply_matrix_to_embeddings_dataframe(best_matrix, df)
     
     # plot similarity distribution BEFORE customization
     plot_cosine_similarity_histogram(df, custom=False)
 
     test_df = df[df["dataset"] == "test"]
-    a, se = accuracy_and_se(test_df["cosine_similarity"], test_df["label"])
-    print(f"Test accuracy: {a:0.1%} ± {1.96 * se:0.1%}")
+    threshold, a, se = accuracy_and_se(test_df["cosine_similarity"], test_df["label"])
+    print(f"Test accuracy: {a:0.1%} ± {1.96 * se:0.1%} at {threshold}")
 
     # plot similarity distribution AFTER customization
     plot_cosine_similarity_histogram(df, custom=True)
 
-    a, se = accuracy_and_se(test_df["cosine_similarity_custom"], test_df["label"])
-    print(f"Test accuracy after customization: {a:0.1%} ± {1.96 * se:0.1%}")
+    threshold, a, se = accuracy_and_se(test_df["cosine_similarity_custom"], test_df["label"])
+    print(f"Test accuracy after customization: {a:0.1%} ± {1.96 * se:0.1%} at {threshold}")
 
 if __name__ == "__main__":
     main()
