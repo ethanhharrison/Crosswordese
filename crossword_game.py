@@ -2,22 +2,28 @@ from crossword import Crossword
 from crossword_guesser import Solver
 from crossword_parser import parse_crossword_json
 import pygame
-
+import pickle
 
 # initialize pygame
 pygame.init()
-
-
+embedding_cache_file = (
+    "data/caches/answer_embedding_cache.pkl"  # embeddings will be saved/loaded here
+)
+try:
+    with open(embedding_cache_file, "rb") as f:
+        answer_embedding_cache = pickle.load(f)
+except FileNotFoundError:
+    answer_embedding_cache = {}
 # get board
 rows, cols, clues = parse_crossword_json("nyt_crosswords-master/1998/10/01.json")
 crossword = Crossword(rows, cols, clues)
-solver = Solver(crossword)
+solver = Solver(crossword, answer_embedding_cache)
 run_solver = True
 
 # starting clue
+clue_index = 0
+clue_list = sorted(crossword.clues, key=lambda x: len(x.tiles))
 if run_solver:
-    clue_index = 0
-    clue_list = sorted(crossword.clues, key=lambda x: len(x.tiles))
     crossword.move_to_given_clue(clue_list[clue_index])
 
 # show errors
@@ -160,15 +166,15 @@ while True:
     pygame.display.update()
     
     # Run the solver
-    if run_solver and clue_index < len(clue_list):                      # type: ignore
-        current_clue = clue_list[clue_index]                            # type: ignore
+    if run_solver and clue_index < len(clue_list):                      
+        current_clue = clue_list[clue_index]                            
         try:
             if not current_clue.is_filled():
-                guess = solver.answer_clue(current_clue)                    # type: ignore
-                for tile, char in zip(current_clue.tiles, guess):           # type: ignore
-                        tile.fill(char)
+                guess = solver.find_closest_embeddings(current_clue.question, len(current_clue.tiles))
+                for tile, char in zip(current_clue.tiles, guess):
+                    tile.fill(char) 
         except BaseException as be:
             print(be)
-        clue_index += 1                                                 # type: ignore
-        if clue_index < len(clue_list):                                 # type: ignore
-            crossword.move_to_given_clue(clue_list[clue_index])         # type: ignore
+        clue_index += 1                                                 
+        if clue_index < len(clue_list):                                 
+            crossword.move_to_given_clue(clue_list[clue_index])        
