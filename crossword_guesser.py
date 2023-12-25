@@ -58,10 +58,9 @@ class Solver:
     # given a crossword, solve for each tile in the puzzle
     def solve(self) -> float:
         for clue in self.puzzle.clues:
-            sol: str = self.answer_clue(clue)
-            question: str = f"{clue.question} ({len(clue.tiles)} letters):"
-            self.guesses[question] = sol
-            print(f"{question} {sol}")
+            sol: str = self.find_closest_embeddings(clue.question, len(clue.tiles))
+            self.guesses[clue.question] = sol
+            print(f"{clue.question}: {sol}")
             for tile, char in zip(clue.tiles, sol):
                 tile.fill(char)
         return self.accuracy()
@@ -79,7 +78,7 @@ class Solver:
         length: int,
         k_closest: int = 10,
         engine: str = default_embedding_engine,
-    ) -> list[tuple]:
+    ) -> str:
         question_embedding = get_embedding(question, engine)
         question_embedding = embedding_multiplied_by_matrix(
             question_embedding, self.matrix
@@ -94,7 +93,11 @@ class Solver:
         similarities = sorted(
             similarities.items(), key=operator.itemgetter(1), reverse=True
         )
-        return similarities[:k_closest]
+        for possible_answer in similarities[:k_closest]:
+            text = possible_answer[0]
+            if text.lower() not in question.lower():
+                return text
+        return similarities[0][0]
 
 
 def main() -> None:
@@ -109,9 +112,8 @@ def main() -> None:
     solver = Solver(crossword, answer_embedding_cache)
     print("Finished initializing solver!")
 
-    best_answers = solver.find_closest_embeddings("Abscond with", 5)
-    print(best_answers)
-
+    accuracy = solver.solve()
+    print("Accuracy:", accuracy)
 
 if __name__ == "__main__":
     main()
