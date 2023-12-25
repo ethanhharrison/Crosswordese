@@ -1,27 +1,30 @@
-from matplotlib.tri import TriAnalyzer
-from networkx import fast_could_be_isomorphic
 import numpy as np
 import pandas as pd
 import plotly.express as px
 import pickle
 import random
+import os
 import operator
+import itertools
 from sklearn.model_selection import train_test_split
 import torch
 
 from embeddings_util import get_embedding, cosine_similarity
 
+import signal
+
+
+def suspension_handler(signum, frame):
+    print(f"Ignoring signal {signum}")
+
+
 # input parameters
-optimal_run_cache = "data/best_run.pkl"
-embedding_cache_path = (
-    "data/clueqa_embedding_cache.pkl"  # embeddings will be saved/loaded here
-)
-default_embedding_engine = (
-    "text-embedding-ada-002"  # text-embedding-ada-002 is recommended
-)
-local_dataset_path = "data/unique_qa_pairs.csv"
+optimal_run_cache = "data/cache/best_run.pkl"
+embedding_cache_path = "data/caches/answer_embedding_cache.pkl"
+default_embedding_engine = "text-embedding-ada-002"
+local_dataset_path = "data/dataframes/unique_qa_pairs.csv"
 run_hyperparameter_search = False
-num_pairs_to_embed = 5000  # 1000 is arbitrary
+num_pairs_to_embed = 5120  # 1000 is arbitrary
 random_seed = 1987
 
 
@@ -150,6 +153,73 @@ def apply_matrix_to_embeddings_dataframe(matrix: torch.Tensor, df: pd.DataFrame)
     return df
 
 
+def save_embedding(
+    cache: dict, cache_filname: str, temp_filename: str = "data/temp_cache.pkl"
+):
+    signal.signal(
+        signal.SIGTSTP, suspension_handler
+    )  # don't allow suspension during pickling
+    with open(temp_filename, "wb") as embedding_cache_file:
+        pickle.dump(cache, embedding_cache_file)
+        embedding_cache_file.flush()
+    os.rename(temp_filename, cache_filname)
+    signal.signal(signal.SIGTSTP, signal.SIG_DFL)  # reset suspension handling
+
+
+def get_embedding_with_cache(
+    text: str,
+    embedding_cache: dict,
+    engine: str = default_embedding_engine,
+    embedding_cache_path: str = embedding_cache_path,
+) -> list:
+    if (text, engine) not in embedding_cache.keys():
+        try:
+            print(f"{text} not found in cache, creating embedding")
+            # if not in cache, call API to get embedding
+            embedding_cache[(text, engine)] = get_embedding(text, engine)
+            # save embeddings cache to disk after each update
+            save_embedding(embedding_cache, embedding_cache_path)
+        except BaseException:
+            print(f"{text} failed to embed, not including in cache")
+            return []
+
+    return embedding_cache[(text, engine)]
+
+
+def embed_all_answers(
+    answer_list: list[str], old_cache: dict, engine: str = default_embedding_engine
+):
+    for letter, words in itertools.groupby(answer_list, key=operator.itemgetter(0)):
+        alphabet_cache_name = f"data/{letter}_answer_embeddings.pkl"
+        try:
+            with open(alphabet_cache_name, "rb") as f:
+                alphabet_cache = pickle.load(f)
+        except:
+            alphabet_cache = {}
+        for answer in words:
+            if (answer, engine) not in old_cache.keys():
+                get_embedding_with_cache(
+                    answer,
+                    alphabet_cache,
+                    engine=engine,
+                    embedding_cache_path=alphabet_cache_name,
+                )
+            elif (answer, engine) not in alphabet_cache.keys():
+                print(f"{answer} found in old cache, adding to new cache")
+                alphabet_cache[(answer, engine)] = old_cache[(answer, engine)]
+                save_embedding(alphabet_cache, alphabet_cache_name)
+            else:
+                print(f"{answer} already found in the alphabet cache")
+
+
+def combine_embeddings(embedding_folder: str, combined_cache: dict):
+    for f in os.listdir(embedding_folder):
+        with open(os.path.join(embedding_folder, f), "rb") as f:
+            letter_cache = pickle.load(f)
+            combined_cache.update(letter_cache)
+    save_embedding(combined_cache, embedding_cache_path)
+
+
 def optimize_matrix(
     df: pd.DataFrame,
     modified_embedding_length: int = 1536,  # in my brief experimentation, bigger was better (2048 is length of babbage encoding)
@@ -206,7 +276,7 @@ def optimize_matrix(
         return similarity
 
     # define loss function to minimize
-    def mse_loss(predictions, targets):
+    def mse_loss(predictions, targets) -> torch.Tensor:
         difference = predictions - targets
         return torch.sum(difference * difference) / difference.numel()
 
@@ -276,11 +346,11 @@ def optimize_matrix(
 
 def hyperparameter_search(
     df: pd.DataFrame,
-    hyperparameters_to_test: list[tuple], 
-    max_epochs: int = 30, 
+    hyperparameters_to_test: list[tuple],
+    max_epochs: int = 30,
     dropout_fraction: float = 0.2,
     retrieve_cache: bool = False,
-    plot: bool = True
+    plot: bool = True,
 ) -> torch.Tensor:
     if retrieve_cache:
         try:
@@ -305,19 +375,19 @@ def hyperparameter_search(
 
         runs_df = pd.concat(results)
         best_run = runs_df.sort_values(by="accuracy", ascending=False).iloc[0]
-        
+
         with open(optimal_run_cache, "wb") as optimal_run_file:
             pickle.dump(best_run, optimal_run_file)
-            
+
         best_matrix = best_run["matrix"]
-        
+
         if plot:
             # plot training loss and test loss over time
             plot_hyperparameter_training(runs_df, measure_loss=True)
 
             # plot accuracy over time
             plot_hyperparameter_training(runs_df, measure_loss=False)
-        
+
         return best_matrix
 
 
@@ -351,11 +421,13 @@ def plot_cosine_similarity_histogram(df: pd.DataFrame, custom: bool = True):
 def main():
     # process data
     df = pd.read_csv("data/unique_qa_pairs.csv")
-
     df = process_input_data(df)
 
+    # split into training and testing sets
     train_df, test_df = perform_train_test_split(df, test_fraction=0.3)
 
+    # add artiticial negative pairs to dataset
+    # this is done after the train-test split so there is no contamination
     df = create_training_df(train_df, test_df, negatives_per_positive=1)
 
     # establishing a cache of embeddings to avoid recomputing
@@ -365,24 +437,11 @@ def main():
     except FileNotFoundError:
         embedding_cache = {}
 
-    def get_embedding_with_cache(
-        text: str,
-        embedding_cache: dict = embedding_cache,
-        engine: str = default_embedding_engine,
-        embedding_cache_path: str = embedding_cache_path,
-    ) -> list:
-        if (text, engine) not in embedding_cache.keys():
-            print(f"{text} not found in cache, creating embedding")
-            # if not in cache, call API to get embedding
-            embedding_cache[(text, engine)] = get_embedding(text, engine)
-            # save embeddings cache to disk after each update
-            with open(embedding_cache_path, "wb") as embedding_cache_file:
-                pickle.dump(embedding_cache, embedding_cache_file)
-        return embedding_cache[(text, engine)]
-
     # create column of embeddings
     for column in ["text_1", "text_2"]:
-        df[f"{column}_embedding"] = df[column].apply(get_embedding_with_cache)
+        df[f"{column}_embedding"] = df[column].apply(
+            lambda x: get_embedding_with_cache(x, embedding_cache)
+        )
     # create column of cosine similarity
     df["cosine_similarity"] = df.apply(
         lambda row: cosine_similarity(row["text_1_embedding"], row["text_2_embedding"]),
@@ -392,20 +451,24 @@ def main():
     # example hyperparameter search
     # I recommend starting with max_epochs=10 while initially exploring
     if run_hyperparameter_search:
-        hyperparameters = [(1000, 1000), (1250, 1250), (1500, 1500)] # (batch_size, learning_size)
+        hyperparameters = [
+            (1000, 1000),
+            (1250, 1250),
+            (1500, 1500),
+        ]  # (batch_size, learning_size)
         best_matrix = hyperparameter_search(
-            df, 
-            hyperparameters, 
-            max_epochs=30, 
-            dropout_fraction=0.2, 
-            retrieve_cache=True, 
-            plot=False
+            df,
+            hyperparameters,
+            max_epochs=30,
+            dropout_fraction=0.2,
+            retrieve_cache=True,
+            plot=False,
         )
     else:
         with open(optimal_run_cache, "rb") as f:
             best_run = pickle.load(f)
             best_matrix = best_run["matrix"]
-        
+
     # apply result of best run to original data
     df = apply_matrix_to_embeddings_dataframe(best_matrix, df)
 

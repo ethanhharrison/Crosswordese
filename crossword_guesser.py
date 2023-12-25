@@ -1,18 +1,22 @@
 import operator
-from config import OPENAI_API_KEY
 from crossword_parser import parse_crossword_json
 from crossword import Crossword, Clue
+
 import pandas as pd
-import openai
 import pickle
-import ast
+from tqdm import tqdm
+
 from embeddings_util import get_embedding, cosine_similarity
 from embedding_customizer import embedding_multiplied_by_matrix
 
-best_run_cache = "data/best_run.pkl"
-qa_dataset_file = "data/qa_dataset.pkl"
-answer_embedding_cache = "data/answer_embeddings.pkl"  # embeddings will be saved/loaded here
-default_embedding_engine = "text-embedding-ada-002"  # text-embedding-ada-002 is recommended
+best_run_cache = "data/caches/best_run.pkl"
+embedding_cache_file = (
+    "data/caches/answer_embedding_cache.pkl"  # embeddings will be saved/loaded here
+)
+default_embedding_engine = (
+    "text-embedding-ada-002"  # text-embedding-ada-002 is recommended
+)
+
 
 class BadModelError(BaseException):
     pass
@@ -22,27 +26,34 @@ class Solver:
     """Class to represent the puzzle solver"""
 
     def __init__(
-        self, 
-        puzzle: Crossword, 
-        df_filename: str = qa_dataset_file, 
-        matrix_filename: str = best_run_cache, 
-        guesses: dict[str, str] = {}
+        self,
+        puzzle: Crossword,
+        answer_embeddings: dict,
+        matrix_filename: str = best_run_cache,
+        guesses: dict[str, str] = {},
     ) -> None:
-        self.puzzle = puzzle
-        self.guesses = guesses
-        with open(df_filename, "rb") as f:
-            df = pickle.load(f)
-            df = df[["text_1", "text_1_embedding"]]
-            df["text_1_embedding"] = df["text_1_embedding"].apply(ast.literal_eval)
-            
         with open(matrix_filename, "rb") as f:
             best_run = pickle.load(f)
-            self.matrix = best_run["matrix"]
-            df["text_1_embedding_custom"] = df["text_1_embedding"].apply(
-                lambda x: embedding_multiplied_by_matrix(x, self.matrix) # type: ignore
-            ) # type: ignore
+        self.matrix = best_run["matrix"]
 
-        self.df: pd.DataFrame = df # type: ignore
+        answer_list = []
+        custom_answer_embeddings = []
+        # print("Customizing answer embeddings...")
+        for key, value in tqdm(answer_embeddings.items()):
+            answer_list.append(key[0])
+            custom_answer_embeddings.append(
+                embedding_multiplied_by_matrix(value, self.matrix)
+            )
+        print("Converting embeddings to dataframe...")
+        self.df: pd.DataFrame = pd.DataFrame(
+            {
+                "text_1": answer_list,
+                "text_1_embedding": answer_embeddings.values(),
+                "text_1_embedding_custom": custom_answer_embeddings,
+            }
+        )
+        self.puzzle = puzzle
+        self.guesses = guesses
 
     # given a crossword, solve for each tile in the puzzle
     def solve(self) -> float:
@@ -63,34 +74,44 @@ class Solver:
         return self.puzzle.board.accuracy()
 
     def find_closest_embeddings(
-        self, 
+        self,
         question: str,
-        length: int, 
+        length: int,
         k_closest: int = 10,
-        engine: str = default_embedding_engine
+        engine: str = default_embedding_engine,
     ) -> list[tuple]:
         question_embedding = get_embedding(question, engine)
-        question_embedding = embedding_multiplied_by_matrix(question_embedding, self.matrix)
-        print(self.df["text_1_embedding_custom"][0].size)
-        print(question_embedding.size)
+        question_embedding = embedding_multiplied_by_matrix(
+            question_embedding, self.matrix
+        )
         similarities = {}
         for _, row in self.df.iterrows():
             if len(row["text_1"]) == length and row["text_1"] not in similarities:
-                similarity = cosine_similarity(row["text_1_embedding_custom"], question_embedding)
+                similarity = cosine_similarity(
+                    row["text_1_embedding_custom"], question_embedding
+                )
                 similarities[row["text_1"]] = similarity
-        similarities = sorted(similarities.items(), key=operator.itemgetter(1), reverse=True)
+        similarities = sorted(
+            similarities.items(), key=operator.itemgetter(1), reverse=True
+        )
         return similarities[:k_closest]
-    
+
 
 def main() -> None:
+    try:
+        with open(embedding_cache_file, "rb") as f:
+            answer_embedding_cache = pickle.load(f)
+    except FileNotFoundError:
+        answer_embedding_cache = {}
+
     rows, cols, clues = parse_crossword_json("nyt_crosswords-master/2001/09/11.json")
     crossword = Crossword(rows, cols, clues)
-    solver = Solver(crossword)
+    solver = Solver(crossword, answer_embedding_cache)
     print("Finished initializing solver!")
+
     best_answers = solver.find_closest_embeddings("Abscond with", 5)
-    
     print(best_answers)
-    # solver.solve()
+
 
 if __name__ == "__main__":
     main()
