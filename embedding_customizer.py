@@ -179,7 +179,8 @@ def get_embedding_with_cache(
             embedding_cache[(text, engine)] = get_embedding(text, engine)
             # save embeddings cache to disk after each update
             save_embedding(embedding_cache, embedding_cache_path)
-        except BaseException:
+        except BaseException as be:
+            print(be)
             print(f"{text} failed to embed, not including in cache")
             return []
 
@@ -187,29 +188,34 @@ def get_embedding_with_cache(
 
 
 def embed_all_answers(
-    answer_list: list[str], old_cache: dict, engine: str = default_embedding_engine
+    string_list: list[str],
+    old_cache: dict,
+    engine: str = default_embedding_engine,
+    type: str = "answer",
 ):
-    for letter, words in itertools.groupby(answer_list, key=operator.itemgetter(0)):
-        alphabet_cache_name = f"data/{letter}_answer_embeddings.pkl"
+    for letter, words in itertools.groupby(string_list, key=operator.itemgetter(0)):
+        alphabet_cache_name = (
+            f"data/alphabetized_embeddings/{letter}_{type}_embeddings.pkl"
+        )
         try:
             with open(alphabet_cache_name, "rb") as f:
                 alphabet_cache = pickle.load(f)
         except:
             alphabet_cache = {}
-        for answer in words:
-            if (answer, engine) not in old_cache.keys():
+        for string in words:
+            if (string, engine) not in old_cache.keys():
                 get_embedding_with_cache(
-                    answer,
+                    string,
                     alphabet_cache,
                     engine=engine,
                     embedding_cache_path=alphabet_cache_name,
                 )
-            elif (answer, engine) not in alphabet_cache.keys():
-                print(f"{answer} found in old cache, adding to new cache")
-                alphabet_cache[(answer, engine)] = old_cache[(answer, engine)]
+            elif (string, engine) not in alphabet_cache.keys():
+                print(f"{string} found in old cache, adding to new cache")
+                alphabet_cache[(string, engine)] = old_cache[(string, engine)]
                 save_embedding(alphabet_cache, alphabet_cache_name)
             else:
-                print(f"{answer} already found in the alphabet cache")
+                print(f"{string} already found in the alphabet cache")
 
 
 def combine_embeddings(embedding_folder: str, combined_cache: dict):
