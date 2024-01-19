@@ -115,5 +115,6 @@ def main() -> None:
     accuracy = solver.solve()
     print("Accuracy:", accuracy)
 
+
 if __name__ == "__main__":
     main()

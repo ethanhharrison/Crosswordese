@@ -79,11 +79,6 @@ def main():
     print(embedded_df.head())
     embedded_df.to_csv("data/dataframes/embedded_qa_pairs.csv", index=False)
 
-    # folder_name = "data/alphabetized_embeddings"
-    # cache_path = "data/caches/answer_embedding_cache_test.pkl"
-    # type = "answer"
-    # merge_embeddings(folder_name, cache_path, type)
-
 
 if __name__ == "__main__":
     main()
