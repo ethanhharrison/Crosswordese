@@ -1,3 +1,4 @@
+from sympy import Union
 from config import OPENAI_API_KEY
 from crossword_parser import parse_crossword_json
 from database_utils import query_database
@@ -72,13 +73,14 @@ def apply_prompt_template(question: str) -> str:
     """
     return prompt
 
-def call_chatgpt_api(question: str, chunks: list[str]):
+def call_chatgpt_api(question: str, chunks: list[str]=None): # type: ignore
     """
     Call chatgpt api with user's question and retrieved chunks.
     """
     # Send a request to the GPT-3 API
-    messages = list(
-        map(lambda chunk: {
+    messages = list()
+    if chunks:
+        messages.append(map(lambda chunk: {
             "role": "user",
             "content": chunk
         }, chunks))
@@ -93,27 +95,30 @@ def call_chatgpt_api(question: str, chunks: list[str]):
     return response
 
 
-def ask(user_question: str) -> str:
+def ask(user_question: str, use_database: bool = False) -> str:
     """
     Handle user's questions.
     """
     # Get chunks from database.
-    chunks_response = query_database(user_question)
-    chunks = []
-    for result in chunks_response["results"]:
-        for inner_result in result["results"]:
-            text = inner_result["text"].split()
-            clue = ""
-            for word in text:
-                clue += " " + word
-                if len(word) >= 3 and word.isupper():
-                    chunks.append(clue)
-                    clue = ""
+    if use_database:
+        chunks_response = query_database(user_question)
+        chunks = []
+        for result in chunks_response["results"]:
+            for inner_result in result["results"]:
+                text = inner_result["text"].split()
+                clue = ""
+                for word in text:
+                    clue += " " + word
+                    if len(word) >= 3 and word.isupper():
+                        chunks.append(clue)
+                        clue = ""
+        logging.info("Retrieved chunks: %s", chunks)
     
     logging.info("User's questions: %s", user_question)
-    logging.info("Retrieved chunks: %s", chunks)
-    
-    response = call_chatgpt_api(user_question, chunks)
+    if use_database:
+        response = call_chatgpt_api(user_question, chunks)
+    else:
+        response = call_chatgpt_api(user_question)
     logging.info("Response: %s", response)
     
     return response.choices[0].message.content # type: ignore

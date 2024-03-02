@@ -2,11 +2,13 @@ from crossword import Crossword
 from crossword_guesser import Solver
 from crossword_parser import parse_crossword_json
 import pygame
-
+import openai
+from config import OPENAI_API_KEY
 
 # initialize pygame
 pygame.init()
-
+# initialize openai
+openai.api_key = OPENAI_API_KEY
 
 # get board
 rows, cols, clues = parse_crossword_json("nyt_crosswords-master/1998/10/01.json")
